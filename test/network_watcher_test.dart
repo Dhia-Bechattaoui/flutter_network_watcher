@@ -1,15 +1,14 @@
-import 'dart:async';
-
+import 'package:flutter_network_watcher/src/exceptions/network_exceptions.dart';
+import 'package:flutter_network_watcher/src/models/connectivity_state.dart';
+import 'package:flutter_network_watcher/src/models/network_request.dart';
+import 'package:flutter_network_watcher/src/models/network_watcher_config.dart';
+import 'package:flutter_network_watcher/src/network_watcher.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_network_watcher/src/network_watcher.dart';
-import 'package:flutter_network_watcher/src/models/connectivity_state.dart';
-import 'package:flutter_network_watcher/src/models/network_watcher_config.dart';
-import 'package:flutter_network_watcher/src/models/network_request.dart';
-import 'package:flutter_network_watcher/src/exceptions/network_exceptions.dart';
-
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('NetworkWatcher', () {
     late NetworkWatcher networkWatcher;
 
@@ -21,7 +20,6 @@ void main() {
       networkWatcher = NetworkWatcher(
         config: const NetworkWatcherConfig(
           checkInterval: Duration(milliseconds: 100),
-          autoRetry: true,
           maxQueueSize: 10,
           persistQueue: false,
           enableLogging: false,
@@ -92,13 +90,13 @@ void main() {
 
         // Manually update connectivity states
         networkWatcher.updateConnectivityState(ConnectivityState.wifi);
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
         networkWatcher.updateConnectivityState(ConnectivityState.none);
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
         networkWatcher.updateConnectivityState(ConnectivityState.mobile);
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
         expect(connectivityStates, contains(ConnectivityState.wifi));
         expect(connectivityStates, contains(ConnectivityState.none));
@@ -199,7 +197,7 @@ void main() {
         networkWatcher.updateConnectivityState(ConnectivityState.wifi);
 
         // Give some time for processing
-        await Future.delayed(const Duration(milliseconds: 200));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
 
         // Queue should be empty after processing
         expect(networkWatcher.queueSize, equals(0));
@@ -217,7 +215,7 @@ void main() {
         networkWatcher.updateConnectivityState(ConnectivityState.wifi);
 
         // Give time for processing and retries
-        await Future.delayed(const Duration(milliseconds: 300));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
 
         // Request should still be in queue with incremented retry count
         expect(networkWatcher.queueSize, equals(1));
@@ -242,7 +240,7 @@ void main() {
         networkWatcher.updateConnectivityState(ConnectivityState.wifi);
 
         // Give time for processing and retries
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future<void>.delayed(const Duration(seconds: 1));
 
         // Request should be removed after exceeding max retries
         expect(networkWatcher.queueSize, equals(0));
@@ -257,12 +255,13 @@ void main() {
         networkWatcher.connectivityStream.listen(states.add);
 
         // Emit same state multiple times
-        networkWatcher.updateConnectivityState(ConnectivityState.wifi);
-        networkWatcher.updateConnectivityState(ConnectivityState.wifi);
-        networkWatcher.updateConnectivityState(ConnectivityState.mobile);
-        networkWatcher.updateConnectivityState(ConnectivityState.mobile);
+        networkWatcher
+          ..updateConnectivityState(ConnectivityState.wifi)
+          ..updateConnectivityState(ConnectivityState.wifi)
+          ..updateConnectivityState(ConnectivityState.mobile)
+          ..updateConnectivityState(ConnectivityState.mobile);
 
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
         // Should only emit distinct values
         expect(states.length,
@@ -276,12 +275,13 @@ void main() {
         networkWatcher.onlineStream.listen(states.add);
 
         // Emit same online state multiple times
-        networkWatcher.updateConnectivityState(ConnectivityState.wifi);
-        networkWatcher.updateConnectivityState(ConnectivityState.mobile);
-        networkWatcher.updateConnectivityState(ConnectivityState.none);
-        networkWatcher.updateConnectivityState(ConnectivityState.wifi);
+        networkWatcher
+          ..updateConnectivityState(ConnectivityState.wifi)
+          ..updateConnectivityState(ConnectivityState.mobile)
+          ..updateConnectivityState(ConnectivityState.none)
+          ..updateConnectivityState(ConnectivityState.wifi);
 
-        await Future.delayed(const Duration(milliseconds: 10));
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
         // Should only emit when online/offline status changes
         expect(states.where((state) => state == true).length,

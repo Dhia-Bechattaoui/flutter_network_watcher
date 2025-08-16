@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -8,16 +7,17 @@ import 'models/network_request.dart';
 import 'models/network_watcher_config.dart';
 import 'exceptions/network_exceptions.dart';
 
-/// Manages a queue of network requests for offline execution
+/// Manages a queue of network requests that are executed when the device
+/// comes back online
 class OfflineQueue {
   /// Configuration for the queue
   final NetworkWatcherConfig config;
 
-  /// Shared preferences instance for persistence
-  SharedPreferences? _prefs;
-
-  /// In-memory queue of requests
+  /// Internal queue of requests
   final List<NetworkRequest> _queue = [];
+
+  /// SharedPreferences instance for persistence
+  SharedPreferences? _prefs;
 
   /// Key for storing queue data in SharedPreferences
   static const String _queueKey = 'flutter_network_watcher_queue';
@@ -29,13 +29,22 @@ class OfflineQueue {
   OfflineQueue({required this.config});
 
   /// Number of requests in the queue
-  int get size => _queue.length;
+  int get size {
+    _ensureInitialized();
+    return _queue.length;
+  }
 
   /// Whether the queue is empty
-  bool get isEmpty => _queue.isEmpty;
+  bool get isEmpty {
+    _ensureInitialized();
+    return _queue.isEmpty;
+  }
 
   /// Whether the queue is not empty
-  bool get isNotEmpty => _queue.isNotEmpty;
+  bool get isNotEmpty {
+    _ensureInitialized();
+    return _queue.isNotEmpty;
+  }
 
   /// Initializes the queue and loads persisted data
   Future<void> initialize() async {
@@ -123,10 +132,9 @@ class OfflineQueue {
   /// Gets a request by ID
   NetworkRequest? getRequest(String requestId) {
     _ensureInitialized();
-
     try {
       return _queue.firstWhere((r) => r.id == requestId);
-    } catch (e) {
+    } on StateError {
       return null;
     }
   }
@@ -155,7 +163,9 @@ class OfflineQueue {
   Future<NetworkRequest?> dequeue() async {
     _ensureInitialized();
 
-    if (_queue.isEmpty) return null;
+    if (_queue.isEmpty) {
+      return null;
+    }
 
     final request = _queue.removeAt(0);
 
@@ -186,7 +196,7 @@ class OfflineQueue {
   /// Removes expired requests from the queue
   Future<int> cleanupExpiredRequests() async {
     _ensureInitialized();
-    return await _cleanupExpiredRequests();
+    return _cleanupExpiredRequests();
   }
 
   /// Gets queue statistics
@@ -223,10 +233,8 @@ class OfflineQueue {
       'utilizationPercent': (totalRequests / config.maxQueueSize * 100).round(),
       'priorityGroups': priorityGroups,
       'methodGroups': methodGroups,
-      'oldestRequestAge':
-          totalRequests > 0 ? now.difference(oldestRequest).inMinutes : 0,
-      'newestRequestAge':
-          totalRequests > 0 ? now.difference(newestRequest).inMinutes : 0,
+      'oldestRequest': oldestRequest.toIso8601String(),
+      'newestRequest': newestRequest.toIso8601String(),
     };
   }
 
@@ -271,7 +279,9 @@ class OfflineQueue {
     _queue.sort((a, b) {
       // Higher priority first
       final priorityComparison = b.priority.compareTo(a.priority);
-      if (priorityComparison != 0) return priorityComparison;
+      if (priorityComparison != 0) {
+        return priorityComparison;
+      }
 
       // Same priority: older requests first
       return a.createdAt.compareTo(b.createdAt);
@@ -282,7 +292,9 @@ class OfflineQueue {
   Future<void> _loadPersistedQueue() async {
     try {
       final queueData = _prefs?.getString(_queueKey);
-      if (queueData == null) return;
+      if (queueData == null) {
+        return;
+      }
 
       final List<dynamic> jsonList = jsonDecode(queueData) as List<dynamic>;
       for (final jsonItem in jsonList) {
@@ -290,7 +302,7 @@ class OfflineQueue {
           final request =
               NetworkRequest.fromJson(jsonItem as Map<String, dynamic>);
           _queue.add(request);
-        } catch (e) {
+        } on FormatException catch (e) {
           _log('Failed to parse persisted request: $e');
         }
       }
@@ -299,7 +311,7 @@ class OfflineQueue {
       _sortQueue();
 
       _log('Loaded ${_queue.length} persisted requests');
-    } catch (e) {
+    } on FormatException catch (e) {
       _log('Failed to load persisted queue: $e');
       // Clear corrupted data
       await _prefs?.remove(_queueKey);
@@ -308,15 +320,17 @@ class OfflineQueue {
 
   /// Persists the current queue to SharedPreferences
   Future<void> _persistQueue() async {
-    if (_prefs == null) return;
+    if (_prefs == null) {
+      return;
+    }
 
     try {
       final jsonList = _queue.map((r) => r.toJson()).toList();
       final queueData = jsonEncode(jsonList);
       await _prefs!.setString(_queueKey, queueData);
-    } catch (e) {
+    } on FormatException catch (e) {
       _log('Failed to persist queue: $e');
-      throw PersistenceException('Failed to persist queue: $e', e);
+      throw PersistenceException('Failed to persist queue: $e');
     }
   }
 
@@ -354,7 +368,7 @@ class OfflineQueue {
   /// Logs a message if logging is enabled
   void _log(String message) {
     if (config.enableLogging && kDebugMode) {
-      print('[OfflineQueue] $message');
+      debugPrint('[OfflineQueue] $message');
     }
   }
 }

@@ -29,7 +29,7 @@ class QueueFullException extends NetworkWatcherException {
 /// Exception thrown when a request fails to be queued
 class QueueException extends NetworkWatcherException {
   /// Creates a new QueueException
-  const QueueException(String message, [Object? cause]) : super(message, cause);
+  const QueueException(super.message, [super.cause]);
 
   @override
   String toString() => 'QueueException: $message';
@@ -44,9 +44,8 @@ class RequestExecutionException extends NetworkWatcherException {
   final int? statusCode;
 
   /// Creates a new RequestExecutionException
-  const RequestExecutionException(this.requestId, String message,
-      [this.statusCode, Object? cause])
-      : super(message, cause);
+  const RequestExecutionException(this.requestId, super.message,
+      [this.statusCode, super.cause]);
 
   @override
   String toString() =>
@@ -56,8 +55,7 @@ class RequestExecutionException extends NetworkWatcherException {
 /// Exception thrown when network connectivity cannot be determined
 class ConnectivityException extends NetworkWatcherException {
   /// Creates a new ConnectivityException
-  const ConnectivityException(String message, [Object? cause])
-      : super(message, cause);
+  const ConnectivityException(super.message, [super.cause]);
 
   @override
   String toString() => 'ConnectivityException: $message';
@@ -66,8 +64,7 @@ class ConnectivityException extends NetworkWatcherException {
 /// Exception thrown when queue persistence operations fail
 class PersistenceException extends NetworkWatcherException {
   /// Creates a new PersistenceException
-  const PersistenceException(String message, [Object? cause])
-      : super(message, cause);
+  const PersistenceException(super.message, [super.cause]);
 
   @override
   String toString() => 'PersistenceException: $message';

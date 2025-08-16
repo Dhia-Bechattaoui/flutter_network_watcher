@@ -1,6 +1,6 @@
 import 'models/connectivity_state.dart';
-import 'models/network_watcher_config.dart';
 import 'models/network_request.dart';
+import 'models/network_watcher_config.dart';
 import 'platform/network_watcher_platform.dart';
 
 /// Main class for monitoring network connectivity and managing offline requests

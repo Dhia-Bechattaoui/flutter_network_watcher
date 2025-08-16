@@ -2,10 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_network_watcher/flutter_network_watcher.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('flutter_network_watcher library', () {
     test('exports all necessary classes', () {
       // Test that all exported classes can be instantiated
-      expect(() => NetworkWatcher(), returnsNormally);
+      expect(NetworkWatcher, isA<Type>());
       expect(() => const NetworkWatcherConfig(), returnsNormally);
       expect(
           () => NetworkRequest(

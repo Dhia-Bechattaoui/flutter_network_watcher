@@ -1,7 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_network_watcher/src/exceptions/network_exceptions.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('NetworkWatcherException', () {
     test('base exception has message and optional cause', () {
       const exception = TestNetworkWatcherException('Test message');
@@ -133,6 +135,5 @@ void main() {
 
 // Test implementation of abstract base class
 class TestNetworkWatcherException extends NetworkWatcherException {
-  const TestNetworkWatcherException(String message, [Object? cause])
-      : super(message, cause);
+  const TestNetworkWatcherException(super.message, [super.cause]);
 }

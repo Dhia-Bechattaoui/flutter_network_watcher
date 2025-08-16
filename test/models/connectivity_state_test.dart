@@ -1,7 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_network_watcher/src/models/connectivity_state.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('ConnectivityState', () {
     test('isConnected returns true for connected states', () {
       expect(ConnectivityState.wifi.isConnected, isTrue);

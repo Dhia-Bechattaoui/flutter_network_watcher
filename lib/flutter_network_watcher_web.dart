@@ -1,9 +1,11 @@
-/// Web platform implementation for Flutter Network Watcher
+/// Web implementation of Flutter Network Watcher
 ///
-/// This library provides the web platform-specific implementation of the
-/// Flutter Network Watcher plugin. It leverages the connectivity_plus plugin
-/// for web connectivity detection.
+/// This library provides web-specific implementations for network connectivity
+/// monitoring. Note that web connectivity detection has limitations compared
+/// to native platforms.
 library flutter_network_watcher_web;
+
+export 'src/platform/network_watcher_stub.dart';
 
 // ignore_for_file: avoid_web_libraries_in_flutter
 

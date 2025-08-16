@@ -1,7 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_network_watcher/src/models/network_request.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('NetworkRequest', () {
     late NetworkRequest testRequest;
     late DateTime testDateTime;

@@ -8,7 +8,9 @@ void main() {
   runApp(const MyApp());
 }
 
+/// Main application widget that sets up the Material app.
 class MyApp extends StatelessWidget {
+  /// Creates a new instance of MyApp.
   const MyApp({super.key});
 
   @override
@@ -24,19 +26,33 @@ class MyApp extends StatelessWidget {
   }
 }
 
+/// Demo widget that showcases the NetworkWatcher functionality.
 class NetworkWatcherDemo extends StatefulWidget {
+  /// Creates a new instance of NetworkWatcherDemo.
   const NetworkWatcherDemo({super.key});
 
   @override
   State<NetworkWatcherDemo> createState() => _NetworkWatcherDemoState();
 }
 
+/// State class for the NetworkWatcherDemo widget.
 class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
+  /// Network watcher instance for monitoring connectivity.
   late NetworkWatcher _networkWatcher;
+
+  /// Current connectivity state.
   ConnectivityState _connectivityState = ConnectivityState.unknown;
+
+  /// Whether the device is currently online.
   bool _isOnline = false;
+
+  /// Current size of the offline queue.
   int _queueSize = 0;
+
+  /// List of currently queued network requests.
   List<NetworkRequest> _queuedRequests = [];
+
+  /// Statistics about the offline queue.
   Map<String, dynamic> _queueStats = {};
 
   @override
@@ -49,7 +65,6 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
     _networkWatcher = NetworkWatcher(
       config: const NetworkWatcherConfig(
         checkInterval: Duration(seconds: 3),
-        autoRetry: true,
         maxQueueSize: 50,
         persistQueue: true,
         enableLogging: true,
@@ -111,13 +126,12 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
       }),
       createdAt: DateTime.now(),
       priority: priority,
-      maxRetries: 3,
     );
 
     try {
       await _networkWatcher.queueRequest(request);
       _showSnackBar('Request queued successfully', Colors.green);
-    } catch (e) {
+    } on Exception catch (e) {
       _showSnackBar('Failed to queue request: $e', Colors.red);
     }
   }
@@ -135,7 +149,7 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
     try {
       await _networkWatcher.queueRequest(request);
       _showSnackBar('Failing request queued', Colors.orange);
-    } catch (e) {
+    } on Exception catch (e) {
       _showSnackBar('Failed to queue request: $e', Colors.red);
     }
   }
@@ -175,14 +189,14 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
         foregroundColor: Colors.white,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Connectivity Status Card
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -217,7 +231,7 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
             // Queue Information Card
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -250,27 +264,37 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
               runSpacing: 8,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () => _addSampleRequest(priority: 1),
+                  onPressed: () {
+                    _addSampleRequest(priority: 1);
+                  },
                   icon: const Icon(Icons.add),
                   label: const Text('Add Request'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _addSampleRequest(priority: 5),
+                  onPressed: () {
+                    _addSampleRequest(priority: 5);
+                  },
                   icon: const Icon(Icons.priority_high),
                   label: const Text('Add High Priority'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: _addFailingRequest,
+                  onPressed: () {
+                    _addFailingRequest();
+                  },
                   icon: const Icon(Icons.error),
                   label: const Text('Add Failing Request'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: _processQueue,
+                  onPressed: () {
+                    _processQueue();
+                  },
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Process Queue'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: _clearQueue,
+                  onPressed: () {
+                    _clearQueue();
+                  },
                   icon: const Icon(Icons.clear),
                   label: const Text('Clear Queue'),
                   style: ElevatedButton.styleFrom(
@@ -289,7 +313,7 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
                           Text(
@@ -376,9 +400,15 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
   }
 
   Color _getPriorityColor(int priority) {
-    if (priority >= 8) return Colors.red;
-    if (priority >= 5) return Colors.orange;
-    if (priority >= 3) return Colors.blue;
+    if (priority >= 8) {
+      return Colors.red;
+    }
+    if (priority >= 5) {
+      return Colors.orange;
+    }
+    if (priority >= 3) {
+      return Colors.blue;
+    }
     return Colors.grey;
   }
 

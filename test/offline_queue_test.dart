@@ -1,11 +1,13 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_network_watcher/src/offline_queue.dart';
+import 'package:flutter_network_watcher/src/exceptions/network_exceptions.dart';
 import 'package:flutter_network_watcher/src/models/network_request.dart';
 import 'package:flutter_network_watcher/src/models/network_watcher_config.dart';
-import 'package:flutter_network_watcher/src/exceptions/network_exceptions.dart';
+import 'package:flutter_network_watcher/src/offline_queue.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('OfflineQueue', () {
     late OfflineQueue queue;
     late NetworkWatcherConfig config;
@@ -162,7 +164,7 @@ void main() {
       });
 
       test('updates existing request', () async {
-        final original = _createTestRequest('update_me', retryCount: 0);
+        final original = _createTestRequest('update_me');
         await queue.enqueue(original);
 
         final updated = original.withIncrementedRetry();
@@ -371,15 +373,22 @@ void main() {
 
     group('persistence', () {
       test('loads persisted queue on initialization', () async {
-        // Set up initial data in SharedPreferences
+        // Set up initial data in SharedPreferences with recent dates
+        final now = DateTime.now();
+        final recentDate1 =
+            now.subtract(const Duration(minutes: 30)).toIso8601String();
+        final recentDate2 =
+            now.subtract(const Duration(minutes: 20)).toIso8601String();
+
         SharedPreferences.setMockInitialValues({
-          'flutter_network_watcher_queue': '''[
+          'flutter_network_watcher_queue': '''
+[
             {
               "id": "persisted_1",
               "method": "GET",
               "url": "https://example.com/1",
               "headers": {},
-              "createdAt": "2024-01-01T12:00:00.000Z",
+              "createdAt": "$recentDate1",
               "retryCount": 0,
               "maxRetries": 3,
               "priority": 1
@@ -389,7 +398,7 @@ void main() {
               "method": "POST",
               "url": "https://example.com/2",
               "headers": {"Content-Type": "application/json"},
-              "createdAt": "2024-01-01T12:00:10.000Z",
+              "createdAt": "$recentDate2",
               "retryCount": 1,
               "maxRetries": 3,
               "priority": 5

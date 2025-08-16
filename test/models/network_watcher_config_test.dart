@@ -1,7 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_network_watcher/src/models/network_watcher_config.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('NetworkWatcherConfig', () {
     test('default constructor sets correct values', () {
       const config = NetworkWatcherConfig();
