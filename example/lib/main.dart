@@ -113,7 +113,7 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
     });
   }
 
-  Future<void> _addSampleRequest({int priority = 1}) async {
+  Future<void> _addSampleRequest({int priority = 0}) async {
     final request = NetworkRequest(
       id: 'request_${DateTime.now().millisecondsSinceEpoch}',
       method: 'POST',
@@ -264,9 +264,7 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
               runSpacing: 8,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () {
-                    _addSampleRequest(priority: 1);
-                  },
+                  onPressed: _addSampleRequest,
                   icon: const Icon(Icons.add),
                   label: const Text('Add Request'),
                 ),
@@ -278,23 +276,17 @@ class _NetworkWatcherDemoState extends State<NetworkWatcherDemo> {
                   label: const Text('Add High Priority'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    _addFailingRequest();
-                  },
+                  onPressed: _addFailingRequest,
                   icon: const Icon(Icons.error),
                   label: const Text('Add Failing Request'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    _processQueue();
-                  },
+                  onPressed: _processQueue,
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Process Queue'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    _clearQueue();
-                  },
+                  onPressed: _clearQueue,
                   icon: const Icon(Icons.clear),
                   label: const Text('Clear Queue'),
                   style: ElevatedButton.styleFrom(

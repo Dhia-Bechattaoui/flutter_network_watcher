@@ -32,6 +32,24 @@ class NetworkRequest {
   /// Optional metadata for the request
   final Map<String, dynamic>? metadata;
 
+  /// Timestamp of the last retry attempt
+  final DateTime? lastRetryTime;
+
+  /// Current retry delay in milliseconds
+  final int? retryDelay;
+
+  /// Reason for the last failure
+  final String? failureReason;
+
+  /// HTTP status code of the last failure
+  final int? lastFailureStatusCode;
+
+  /// Types of errors that should trigger a retry
+  final List<String> retryableErrorTypes;
+
+  /// Whether this request should be retried on specific error types
+  final bool retryOnSpecificErrors;
+
   /// Creates a new network request
   const NetworkRequest({
     required this.id,
@@ -44,6 +62,16 @@ class NetworkRequest {
     this.maxRetries = 3,
     this.priority = 0,
     this.metadata,
+    this.lastRetryTime,
+    this.retryDelay,
+    this.failureReason,
+    this.lastFailureStatusCode,
+    this.retryableErrorTypes = const [
+      'timeout',
+      'network_error',
+      'server_error'
+    ],
+    this.retryOnSpecificErrors = false,
   });
 
   /// Creates a copy of this request with updated values
@@ -58,6 +86,12 @@ class NetworkRequest {
     int? maxRetries,
     int? priority,
     Map<String, dynamic>? metadata,
+    DateTime? lastRetryTime,
+    int? retryDelay,
+    String? failureReason,
+    int? lastFailureStatusCode,
+    List<String>? retryableErrorTypes,
+    bool? retryOnSpecificErrors,
   }) {
     return NetworkRequest(
       id: id ?? this.id,
@@ -70,15 +104,50 @@ class NetworkRequest {
       maxRetries: maxRetries ?? this.maxRetries,
       priority: priority ?? this.priority,
       metadata: metadata ?? this.metadata,
+      lastRetryTime: lastRetryTime ?? this.lastRetryTime,
+      retryDelay: retryDelay ?? this.retryDelay,
+      failureReason: failureReason ?? this.failureReason,
+      lastFailureStatusCode:
+          lastFailureStatusCode ?? this.lastFailureStatusCode,
+      retryableErrorTypes: retryableErrorTypes ?? this.retryableErrorTypes,
+      retryOnSpecificErrors:
+          retryOnSpecificErrors ?? this.retryOnSpecificErrors,
     );
   }
 
   /// Returns true if this request can be retried
   bool get canRetry => retryCount < maxRetries;
 
-  /// Creates a new request with incremented retry count
-  NetworkRequest withIncrementedRetry() {
-    return copyWith(retryCount: retryCount + 1);
+  /// Returns true if this request should be retried based on error type
+  bool shouldRetryOnError(String errorType) {
+    if (!retryOnSpecificErrors) return true;
+    return retryableErrorTypes.contains(errorType);
+  }
+
+  /// Creates a new request with incremented retry count and updated retry info
+  NetworkRequest withIncrementedRetry({
+    String? failureReason,
+    int? statusCode,
+    int? retryDelay,
+  }) {
+    return copyWith(
+      retryCount: retryCount + 1,
+      lastRetryTime: DateTime.now(),
+      failureReason: failureReason,
+      lastFailureStatusCode: statusCode,
+      retryDelay: retryDelay,
+    );
+  }
+
+  /// Creates a new request with updated failure information
+  NetworkRequest withFailureInfo({
+    String? failureReason,
+    int? statusCode,
+  }) {
+    return copyWith(
+      failureReason: failureReason,
+      lastFailureStatusCode: statusCode,
+    );
   }
 
   /// Converts this request to a JSON map
@@ -94,6 +163,12 @@ class NetworkRequest {
       'maxRetries': maxRetries,
       'priority': priority,
       'metadata': metadata,
+      'lastRetryTime': lastRetryTime?.toIso8601String(),
+      'retryDelay': retryDelay,
+      'failureReason': failureReason,
+      'lastFailureStatusCode': lastFailureStatusCode,
+      'retryableErrorTypes': retryableErrorTypes,
+      'retryOnSpecificErrors': retryOnSpecificErrors,
     };
   }
 
@@ -110,6 +185,16 @@ class NetworkRequest {
       maxRetries: json['maxRetries'] as int? ?? 3,
       priority: json['priority'] as int? ?? 0,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      lastRetryTime: json['lastRetryTime'] != null
+          ? DateTime.parse(json['lastRetryTime'] as String)
+          : null,
+      retryDelay: json['retryDelay'] as int?,
+      failureReason: json['failureReason'] as String?,
+      lastFailureStatusCode: json['lastFailureStatusCode'] as int?,
+      retryableErrorTypes:
+          (json['retryableErrorTypes'] as List<dynamic>?)?.cast<String>() ??
+              ['timeout', 'network_error', 'server_error'],
+      retryOnSpecificErrors: json['retryOnSpecificErrors'] as bool? ?? false,
     );
   }
 
@@ -124,7 +209,7 @@ class NetworkRequest {
 
   @override
   String toString() {
-    return 'NetworkRequest{id: $id, method: $method, url: $url, retryCount: $retryCount}';
+    return 'NetworkRequest{id: $id, method: $method, url: $url, retryCount: $retryCount, failureReason: $failureReason}';
   }
 
   @override

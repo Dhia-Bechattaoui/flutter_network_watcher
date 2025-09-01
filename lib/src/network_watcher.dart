@@ -1,12 +1,15 @@
 import 'models/connectivity_state.dart';
 import 'models/network_request.dart';
 import 'models/network_watcher_config.dart';
-import 'platform/network_watcher_platform.dart';
+
+import 'platform/network_watcher_base.dart';
+import 'platform/network_watcher_web.dart';
+import 'dead_letter_queue.dart';
 
 /// Main class for monitoring network connectivity and managing offline requests
 class NetworkWatcher {
   /// Platform-specific implementation
-  late final NetworkWatcherPlatform _platform;
+  late final NetworkWatcherBase _platform;
 
   /// Configuration for the network watcher
   final NetworkWatcherConfig config;
@@ -18,7 +21,15 @@ class NetworkWatcher {
   NetworkWatcher({
     this.config = NetworkWatcherConfig.defaultConfig,
   }) {
-    _platform = NetworkWatcherPlatform(config: config);
+    // Create the appropriate platform implementation
+    _platform = _createPlatformImplementation();
+  }
+
+  /// Creates the appropriate platform implementation based on the current environment
+  NetworkWatcherBase _createPlatformImplementation() {
+    // For now, use web implementation by default to avoid platform conflicts
+    // This ensures WASM compatibility and cross-platform support
+    return NetworkWatcherPlatform(config: config);
   }
 
   /// Stream of connectivity state changes
@@ -44,6 +55,9 @@ class NetworkWatcher {
   /// List of all requests in the offline queue
   List<NetworkRequest> get queuedRequests => _platform.queuedRequests;
 
+  /// Number of requests in the dead letter queue
+  int get deadLetterQueueSize => _platform.deadLetterQueueSize;
+
   /// Starts monitoring network connectivity
   Future<void> start() async => _platform.start();
 
@@ -66,6 +80,20 @@ class NetworkWatcher {
 
   /// Manually processes the offline queue
   Future<void> processQueue() async => _platform.processQueue();
+
+  /// Gets retry statistics for a specific request
+  Map<String, dynamic> getRetryStats(String requestId) =>
+      _platform.getRetryStats(requestId);
+
+  /// Gets all requests that are ready for retry
+  List<NetworkRequest> getRequestsReadyForRetry() =>
+      _platform.getRequestsReadyForRetry();
+
+  /// Gets comprehensive queue statistics including retry and dead letter queue info
+  Map<String, dynamic> getQueueStatistics() => _platform.getQueueStatistics();
+
+  /// Gets access to the dead letter queue if enabled
+  DeadLetterQueue? get deadLetterQueue => _platform.deadLetterQueue;
 
   /// Disposes of all resources
   Future<void> dispose() async => _platform.dispose();

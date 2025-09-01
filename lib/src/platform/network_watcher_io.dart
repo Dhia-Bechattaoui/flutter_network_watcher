@@ -5,15 +5,26 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../dead_letter_queue.dart';
 import '../exceptions/network_exceptions.dart';
 import '../models/connectivity_state.dart';
 import '../models/network_request.dart';
 import '../models/network_watcher_config.dart';
 import '../offline_queue.dart';
+import 'network_watcher_base.dart';
 
 /// IO implementation for mobile and desktop platforms
-class NetworkWatcherPlatform {
+class NetworkWatcherPlatform extends NetworkWatcherBase {
+  /// Creates a new NetworkWatcher instance
+  NetworkWatcherPlatform({
+    this.config = NetworkWatcherConfig.defaultConfig,
+  }) {
+    _offlineQueue = OfflineQueue(config: config);
+    _initializeConnectivityMonitoring();
+  }
+
   /// Configuration for the network watcher
+  @override
   final NetworkWatcherConfig config;
 
   /// Offline queue manager
@@ -43,40 +54,45 @@ class NetworkWatcherPlatform {
   bool _isProcessingQueue = false;
 
   /// Expose active state
+  @override
   bool get isActive => _isActive;
 
-  /// Creates a new NetworkWatcher instance
-  NetworkWatcherPlatform({
-    this.config = NetworkWatcherConfig.defaultConfig,
-  }) {
-    _offlineQueue = OfflineQueue(config: config);
-    _initializeConnectivityMonitoring();
-  }
-
   /// Stream of connectivity state changes
+  @override
   Stream<ConnectivityState> get connectivityStream =>
       _connectivityController.stream.distinct();
 
   /// Stream of online/offline status changes
+  @override
   Stream<bool> get onlineStream => _onlineController.stream.distinct();
 
   /// Current connectivity state
+  @override
   ConnectivityState get currentConnectivityState =>
       _connectivityController.value;
 
   /// Whether the device is currently online
+  @override
   bool get isOnline => _onlineController.value;
 
   /// Whether the device is currently offline
+  @override
   bool get isOffline => !isOnline;
 
   /// Number of requests currently in the offline queue
+  @override
   int get queueSize => _offlineQueue.size;
 
   /// List of all requests in the offline queue
+  @override
   List<NetworkRequest> get queuedRequests => _offlineQueue.getAllRequests();
 
+  /// Number of requests in the dead letter queue
+  @override
+  int get deadLetterQueueSize => _offlineQueue.deadLetterQueueSize;
+
   /// Starts monitoring network connectivity
+  @override
   Future<void> start() async {
     if (_isActive) {
       return;
@@ -102,6 +118,7 @@ class NetworkWatcherPlatform {
   }
 
   /// Stops monitoring network connectivity
+  @override
   Future<void> stop() async {
     if (!_isActive) {
       return;
@@ -124,6 +141,7 @@ class NetworkWatcherPlatform {
   }
 
   /// Queues a network request for execution when online
+  @override
   Future<void> queueRequest(NetworkRequest request) async {
     if (!_isActive) {
       throw const QueueException('NetworkWatcher is not active');
@@ -134,8 +152,11 @@ class NetworkWatcherPlatform {
       try {
         await _executeRequest(request);
         return;
-      } catch (e) {
+      } on RequestExecutionException catch (e) {
         _log('Failed to execute request immediately, queueing: $e');
+        // Fall through to queue the request
+      } on Exception catch (e) {
+        _log('Unexpected error executing request immediately, queueing: $e');
         // Fall through to queue the request
       }
     }
@@ -146,6 +167,7 @@ class NetworkWatcherPlatform {
   }
 
   /// Removes a specific request from the queue
+  @override
   Future<bool> removeRequest(String requestId) async {
     final removed = await _offlineQueue.remove(requestId);
     if (removed) {
@@ -155,17 +177,20 @@ class NetworkWatcherPlatform {
   }
 
   /// Clears all requests from the queue
+  @override
   Future<void> clearQueue() async {
     await _offlineQueue.clear();
     _log('Queue cleared');
   }
 
   /// Forces a connectivity check
+  @override
   Future<void> checkConnectivity() async {
     await _checkConnectivity();
   }
 
   /// Manually processes the offline queue
+  @override
   Future<void> processQueue() async {
     if (!isOnline) {
       _log('Cannot process queue while offline');
@@ -175,7 +200,30 @@ class NetworkWatcherPlatform {
     await _processOfflineQueue();
   }
 
+  /// Gets retry statistics for a specific request
+  @override
+  Map<String, dynamic> getRetryStats(String requestId) {
+    return _offlineQueue.getRetryStats(requestId);
+  }
+
+  /// Gets all requests that are ready for retry
+  @override
+  List<NetworkRequest> getRequestsReadyForRetry() {
+    return _offlineQueue.getRequestsReadyForRetry();
+  }
+
+  /// Gets comprehensive queue statistics
+  @override
+  Map<String, dynamic> getQueueStatistics() {
+    return _offlineQueue.getStatistics();
+  }
+
+  /// Gets dead letter queue if enabled
+  @override
+  DeadLetterQueue? get deadLetterQueue => _offlineQueue.deadLetterQueue;
+
   /// Disposes of all resources
+  @override
   Future<void> dispose() async {
     await stop();
     await _connectivityController.close();
@@ -234,7 +282,7 @@ class NetworkWatcherPlatform {
           _updateConnectivityState(ConnectivityState.none);
         }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       _log('Error checking connectivity: $e');
       _updateConnectivityState(ConnectivityState.unknown);
     }
@@ -246,8 +294,14 @@ class NetworkWatcherPlatform {
       final result = await InternetAddress.lookup('google.com')
           .timeout(const Duration(seconds: 5));
       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } catch (e) {
+    } on SocketException catch (e) {
       _log('Internet connectivity test failed: $e');
+      return false;
+    } on TimeoutException catch (e) {
+      _log('Internet connectivity test timed out: $e');
+      return false;
+    } on Exception catch (e) {
+      _log('Unexpected error in internet connectivity test: $e');
       return false;
     }
   }
@@ -262,6 +316,7 @@ class NetworkWatcherPlatform {
   }
 
   /// Expose connectivity state update
+  @override
   void updateConnectivityState(ConnectivityState state) {
     final previousState = _connectivityController.value;
     _log('updateConnectivityState called: $previousState -> $state');
@@ -317,11 +372,21 @@ class NetworkWatcherPlatform {
     _log('Processing offline queue (${_offlineQueue.size} requests)');
 
     try {
-      // Collect all requests first to avoid modification during iteration
-      final requests =
-          List<NetworkRequest>.from(_offlineQueue.getAllRequests());
+      // Clean up requests that can't be retried anymore
+      await _cleanupExpiredRequests();
 
-      for (final request in requests) {
+      // Get requests that are ready for retry
+      final readyRequests = _offlineQueue.getRequestsReadyForRetry();
+      if (readyRequests.isEmpty) {
+        _log('No requests ready for retry');
+        // Still clean up expired requests even if none are ready for retry
+        await _cleanupExpiredRequests();
+        return;
+      }
+
+      _log('Processing ${readyRequests.length} requests ready for retry');
+
+      for (final request in readyRequests) {
         if (!isOnline) {
           _log('Went offline during processing, stopping');
           break; // Stop if we go offline during processing
@@ -334,35 +399,16 @@ class NetworkWatcherPlatform {
           await _executeRequest(request);
           await _offlineQueue.remove(request.id);
           _log('Successfully executed queued request: ${request.id}');
-        } catch (e) {
+        } on RequestExecutionException catch (e) {
           _log('Failed to execute queued request ${request.id}: $e');
 
-          if (request.canRetry) {
-            _log('Request ${request.id} can be retried, updating retry count');
-            // Update request with incremented retry count
-            final updatedRequest = request.withIncrementedRetry();
-            await _offlineQueue.update(updatedRequest);
+          // Use the enhanced retry logic
+          await _offlineQueue.handleFailedRequest(request, e);
+        } on Exception catch (e) {
+          _log('Unexpected error executing queued request ${request.id}: $e');
 
-            // Check if the updated request can still be retried
-            if (!updatedRequest.canRetry) {
-              _log(
-                  'Request ${request.id} exceeded max retries after update, removing from queue');
-              await _offlineQueue.remove(request.id);
-            } else {
-              // Apply retry delay if configured
-              if (config.retryDelayStrategy != null) {
-                final delay = config.retryDelayStrategy!(request.retryCount);
-                _log('Applying retry delay: $delay');
-                await Future<void>.delayed(delay);
-              }
-            }
-          } else {
-            _log(
-                'Request ${request.id} exceeded max retries, removing from queue');
-            // Remove request if max retries exceeded
-            await _offlineQueue.remove(request.id);
-            _log('Removed request ${request.id} after max retries');
-          }
+          // Use the enhanced retry logic
+          await _offlineQueue.handleFailedRequest(request, e);
         }
       }
     } finally {
@@ -380,12 +426,52 @@ class NetworkWatcherPlatform {
     // Simulate network delay
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    // Simulate random failures for testing
+    // Simulate different types of failures for testing
     if (request.url.contains('fail')) {
       throw RequestExecutionException(
         request.id,
         'Simulated request failure',
       );
+    }
+
+    if (request.url.contains('timeout')) {
+      throw RequestExecutionException(
+        request.id,
+        'Simulated timeout',
+      );
+    }
+
+    if (request.url.contains('server_error')) {
+      throw RequestExecutionException(
+        request.id,
+        'Simulated server error',
+        500,
+      );
+    }
+
+    if (request.url.contains('rate_limit')) {
+      throw RequestExecutionException(
+        request.id,
+        'Simulated rate limit',
+        429,
+      );
+    }
+  }
+
+  /// Cleans up requests that can't be retried anymore
+  Future<void> _cleanupExpiredRequests() async {
+    final requestsToRemove = <String>[];
+
+    for (final request in _offlineQueue.getAllRequests()) {
+      if (!request.canRetry) {
+        requestsToRemove.add(request.id);
+        _log('Request ${request.id} exceeded max retries, marking for removal');
+      }
+    }
+
+    for (final requestId in requestsToRemove) {
+      await _offlineQueue.remove(requestId);
+      _log('Removed expired request: $requestId');
     }
   }
 

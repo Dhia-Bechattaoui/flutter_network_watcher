@@ -9,9 +9,11 @@ import '../models/connectivity_state.dart';
 import '../models/network_request.dart';
 import '../models/network_watcher_config.dart';
 import '../offline_queue.dart';
+import '../dead_letter_queue.dart';
+import 'network_watcher_base.dart';
 
 /// Stub implementation for unsupported platforms
-class NetworkWatcherPlatform {
+class NetworkWatcherPlatform extends NetworkWatcherBase {
   /// Configuration for the network watcher
   final NetworkWatcherConfig config;
 
@@ -74,6 +76,9 @@ class NetworkWatcherPlatform {
 
   /// List of all requests in the offline queue
   List<NetworkRequest> get queuedRequests => _offlineQueue.getAllRequests();
+
+  /// Number of requests in the dead letter queue
+  int get deadLetterQueueSize => _offlineQueue.deadLetterQueueSize;
 
   /// Starts monitoring network connectivity
   Future<void> start() async {
@@ -173,6 +178,25 @@ class NetworkWatcherPlatform {
 
     await _processOfflineQueue();
   }
+
+  /// Gets retry statistics for a specific request
+  Map<String, dynamic> getRetryStats(String requestId) {
+    return _offlineQueue.getRetryStats(requestId);
+  }
+
+  /// Gets all requests that are ready for retry
+  List<NetworkRequest> getRequestsReadyForRetry() {
+    return _offlineQueue.getRequestsReadyForRetry();
+  }
+
+  /// Gets comprehensive queue statistics
+  Map<String, dynamic> getQueueStatistics() {
+    return _offlineQueue.getStatistics();
+  }
+
+  /// Gets dead letter queue if enabled
+  @override
+  DeadLetterQueue? get deadLetterQueue => _offlineQueue.deadLetterQueue;
 
   /// Disposes of all resources
   Future<void> dispose() async {

@@ -239,8 +239,12 @@ void main() {
         // Come back online
         networkWatcher.updateConnectivityState(ConnectivityState.wifi);
 
-        // Give time for processing and retries
-        await Future<void>.delayed(const Duration(seconds: 1));
+        // Manually trigger queue processing to ensure the request is processed
+        await networkWatcher.processQueue();
+
+        // Wait for the request to be processed and retried
+        // The retry delay is 2 seconds for the first retry, so wait longer
+        await Future<void>.delayed(const Duration(seconds: 5));
 
         // Request should be removed after exceeding max retries
         expect(networkWatcher.queueSize, equals(0));

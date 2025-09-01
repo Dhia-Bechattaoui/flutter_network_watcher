@@ -21,6 +21,30 @@ class NetworkWatcherConfig {
   /// Custom retry delay strategy
   final Duration Function(int retryCount)? retryDelayStrategy;
 
+  /// Maximum retry delay (prevents excessive delays)
+  final Duration maxRetryDelay;
+
+  /// Whether to add jitter to retry delays (helps prevent thundering herd)
+  final bool retryJitter;
+
+  /// Whether to enable dead letter queue for failed requests
+  final bool deadLetterQueueEnabled;
+
+  /// Maximum size of the dead letter queue
+  final int maxDeadLetterQueueSize;
+
+  /// HTTP status codes that should trigger a retry
+  final List<int> retryableStatusCodes;
+
+  /// Whether to retry on network errors (timeouts, connection failures)
+  final bool retryOnNetworkErrors;
+
+  /// Whether to retry on server errors (5xx status codes)
+  final bool retryOnServerErrors;
+
+  /// Whether to retry on client errors (4xx status codes, except 4xx)
+  final bool retryOnClientErrors;
+
   /// Creates a new NetworkWatcherConfig
   const NetworkWatcherConfig({
     this.checkInterval = const Duration(seconds: 5),
@@ -30,6 +54,14 @@ class NetworkWatcherConfig {
     this.maxRequestAge = const Duration(hours: 24),
     this.enableLogging = false,
     this.retryDelayStrategy,
+    this.maxRetryDelay = const Duration(minutes: 5),
+    this.retryJitter = true,
+    this.deadLetterQueueEnabled = false,
+    this.maxDeadLetterQueueSize = 50,
+    this.retryableStatusCodes = const [408, 429, 500, 502, 503, 504],
+    this.retryOnNetworkErrors = true,
+    this.retryOnServerErrors = true,
+    this.retryOnClientErrors = false,
   });
 
   /// Default configuration
@@ -40,6 +72,7 @@ class NetworkWatcherConfig {
     checkInterval: Duration(seconds: 30),
     maxQueueSize: 50,
     maxRequestAge: Duration(hours: 6),
+    maxRetryDelay: Duration(minutes: 2),
   );
 
   /// Configuration optimized for real-time responsiveness
@@ -47,6 +80,19 @@ class NetworkWatcherConfig {
     checkInterval: Duration(seconds: 1),
     maxQueueSize: 200,
     enableLogging: true,
+    maxRetryDelay: Duration(minutes: 1),
+    retryJitter: false,
+  );
+
+  /// Configuration optimized for reliability with aggressive retries
+  static const NetworkWatcherConfig reliabilityOptimized = NetworkWatcherConfig(
+    checkInterval: Duration(seconds: 2),
+    maxQueueSize: 300,
+    maxRetryDelay: Duration(minutes: 10),
+    retryJitter: true,
+    deadLetterQueueEnabled: true,
+    maxDeadLetterQueueSize: 100,
+    retryOnClientErrors: true,
   );
 
   /// Creates a copy of this config with updated values
@@ -58,6 +104,14 @@ class NetworkWatcherConfig {
     Duration? maxRequestAge,
     bool? enableLogging,
     Duration Function(int retryCount)? retryDelayStrategy,
+    Duration? maxRetryDelay,
+    bool? retryJitter,
+    bool? deadLetterQueueEnabled,
+    int? maxDeadLetterQueueSize,
+    List<int>? retryableStatusCodes,
+    bool? retryOnNetworkErrors,
+    bool? retryOnServerErrors,
+    bool? retryOnClientErrors,
   }) {
     return NetworkWatcherConfig(
       checkInterval: checkInterval ?? this.checkInterval,
@@ -67,6 +121,16 @@ class NetworkWatcherConfig {
       maxRequestAge: maxRequestAge ?? this.maxRequestAge,
       enableLogging: enableLogging ?? this.enableLogging,
       retryDelayStrategy: retryDelayStrategy ?? this.retryDelayStrategy,
+      maxRetryDelay: maxRetryDelay ?? this.maxRetryDelay,
+      retryJitter: retryJitter ?? this.retryJitter,
+      deadLetterQueueEnabled:
+          deadLetterQueueEnabled ?? this.deadLetterQueueEnabled,
+      maxDeadLetterQueueSize:
+          maxDeadLetterQueueSize ?? this.maxDeadLetterQueueSize,
+      retryableStatusCodes: retryableStatusCodes ?? this.retryableStatusCodes,
+      retryOnNetworkErrors: retryOnNetworkErrors ?? this.retryOnNetworkErrors,
+      retryOnServerErrors: retryOnServerErrors ?? this.retryOnServerErrors,
+      retryOnClientErrors: retryOnClientErrors ?? this.retryOnClientErrors,
     );
   }
 
@@ -85,6 +149,30 @@ class NetworkWatcherConfig {
     return const Duration(seconds: 10);
   }
 
+  /// Exponential backoff with jitter strategy
+  static Duration exponentialBackoffWithJitter(int retryCount) {
+    final baseDelay = Duration(seconds: (2 * retryCount).clamp(1, 60));
+    final jitter =
+        Duration(milliseconds: (baseDelay.inMilliseconds * 0.1).round());
+    return Duration(
+        milliseconds: baseDelay.inMilliseconds + jitter.inMilliseconds);
+  }
+
+  /// Determines if a status code should trigger a retry
+  bool shouldRetryOnStatusCode(int statusCode) {
+    if (retryableStatusCodes.contains(statusCode)) return true;
+
+    if (statusCode >= 500 && statusCode < 600) {
+      return retryOnServerErrors;
+    }
+
+    if (statusCode >= 400 && statusCode < 500) {
+      return retryOnClientErrors;
+    }
+
+    return false;
+  }
+
   @override
   String toString() {
     return 'NetworkWatcherConfig{'
@@ -93,7 +181,10 @@ class NetworkWatcherConfig {
         'maxQueueSize: $maxQueueSize, '
         'persistQueue: $persistQueue, '
         'maxRequestAge: $maxRequestAge, '
-        'enableLogging: $enableLogging'
+        'enableLogging: $enableLogging, '
+        'maxRetryDelay: $maxRetryDelay, '
+        'retryJitter: $retryJitter, '
+        'deadLetterQueueEnabled: $deadLetterQueueEnabled'
         '}';
   }
 }

@@ -337,8 +337,8 @@ void main() {
         expect(stats['utilizationPercent'], equals(0));
         expect(stats['priorityGroups'], isEmpty);
         expect(stats['methodGroups'], isEmpty);
-        expect(stats['oldestRequestAge'], equals(0));
-        expect(stats['newestRequestAge'], equals(0));
+        expect(stats['retryGroups'], isEmpty);
+        expect(stats['deadLetterQueueSize'], equals(0));
       });
 
       test('returns correct statistics for populated queue', () async {
@@ -346,14 +346,17 @@ void main() {
         final old = _createTestRequest('old',
             priority: 1,
             method: 'GET',
+            retryCount: 0,
             createdAt: now.subtract(const Duration(minutes: 10)));
         final new1 = _createTestRequest('new1',
             priority: 1,
             method: 'POST',
+            retryCount: 1,
             createdAt: now.subtract(const Duration(minutes: 2)));
         final new2 = _createTestRequest('new2',
             priority: 5,
             method: 'GET',
+            retryCount: 2,
             createdAt: now.subtract(const Duration(minutes: 1)));
 
         await queue.enqueue(old);
@@ -366,8 +369,8 @@ void main() {
         expect(stats['utilizationPercent'], equals(60)); // 3/5 * 100
         expect(stats['priorityGroups'], equals({1: 2, 5: 1}));
         expect(stats['methodGroups'], equals({'GET': 2, 'POST': 1}));
-        expect(stats['oldestRequestAge'], equals(10));
-        expect(stats['newestRequestAge'], equals(1));
+        expect(stats['retryGroups'], equals({0: 1, 1: 1, 2: 1}));
+        expect(stats['deadLetterQueueSize'], equals(0));
       });
     });
 

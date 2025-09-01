@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models/network_request.dart';
 import 'models/network_watcher_config.dart';
 import 'exceptions/network_exceptions.dart';
+import 'retry_manager.dart';
+import 'dead_letter_queue.dart';
 
 /// Manages a queue of network requests that are executed when the device
 /// comes back online
@@ -25,8 +27,19 @@ class OfflineQueue {
   /// Whether the queue has been initialized
   bool _initialized = false;
 
+  /// Retry manager for handling retry logic
+  late final RetryManager _retryManager;
+
+  /// Dead letter queue for failed requests
+  DeadLetterQueue? _deadLetterQueue;
+
   /// Creates a new OfflineQueue instance
-  OfflineQueue({required this.config});
+  OfflineQueue({required this.config}) {
+    _retryManager = RetryManager(config: config);
+    if (config.deadLetterQueueEnabled) {
+      _deadLetterQueue = DeadLetterQueue(config: config);
+    }
+  }
 
   /// Number of requests in the queue
   int get size {
@@ -46,6 +59,12 @@ class OfflineQueue {
     return _queue.isNotEmpty;
   }
 
+  /// Number of requests in the dead letter queue
+  int get deadLetterQueueSize {
+    if (_deadLetterQueue == null) return 0;
+    return _deadLetterQueue!.size;
+  }
+
   /// Initializes the queue and loads persisted data
   Future<void> initialize() async {
     if (_initialized) return;
@@ -55,6 +74,11 @@ class OfflineQueue {
     if (config.persistQueue) {
       _prefs = await SharedPreferences.getInstance();
       await _loadPersistedQueue();
+    }
+
+    // Initialize dead letter queue if enabled
+    if (_deadLetterQueue != null) {
+      await _deadLetterQueue!.initialize();
     }
 
     // Clean up expired requests
@@ -199,6 +223,82 @@ class OfflineQueue {
     return _cleanupExpiredRequests();
   }
 
+  /// Handles a failed request with retry logic
+  Future<void> handleFailedRequest(
+    NetworkRequest request,
+    Object error, [
+    int? statusCode,
+  ]) async {
+    _ensureInitialized();
+
+    _log('Handling failed request: ${request.id} (error: $error)');
+
+    // Check if request should be retried
+    if (_retryManager.shouldRetry(request, error, statusCode)) {
+      // Prepare request for retry
+      final retryRequest =
+          _retryManager.prepareForRetry(request, error, statusCode);
+
+      // Update the request in the queue
+      await update(retryRequest);
+
+      _log(
+          'Request ${request.id} prepared for retry (attempt ${retryRequest.retryCount}/${retryRequest.maxRetries})');
+    } else {
+      // Request cannot be retried, move to dead letter queue if enabled
+      if (_deadLetterQueue != null) {
+        final retryStats = _retryManager.getRetryStats(request);
+        final failureReason = retryStats['failureReason'] as String?;
+        final failedRequest = request.withFailureInfo(
+          failureReason: failureReason,
+          statusCode: statusCode,
+        );
+
+        await _deadLetterQueue!.enqueue(failedRequest);
+        await remove(request.id);
+
+        _log(
+            'Request ${request.id} moved to dead letter queue after ${request.retryCount} retries');
+      } else {
+        // Remove from main queue if dead letter queue is disabled
+        await remove(request.id);
+        _log(
+            'Request ${request.id} removed from queue after ${request.retryCount} retries');
+      }
+    }
+  }
+
+  /// Gets retry statistics for a specific request
+  Map<String, dynamic> getRetryStats(String requestId) {
+    _ensureInitialized();
+
+    final request = getRequest(requestId);
+    if (request == null) {
+      return {'error': 'Request not found'};
+    }
+
+    return _retryManager.getRetryStats(request);
+  }
+
+  /// Gets all requests that are ready for retry
+  List<NetworkRequest> getRequestsReadyForRetry() {
+    _ensureInitialized();
+
+    final now = DateTime.now();
+    return _queue.where((request) {
+      if (!request.canRetry) return false;
+
+      // Check if enough time has passed since last retry
+      if (request.lastRetryTime != null) {
+        final timeSinceLastRetry = now.difference(request.lastRetryTime!);
+        final requiredDelay = Duration(milliseconds: request.retryDelay ?? 0);
+        return timeSinceLastRetry >= requiredDelay;
+      }
+
+      return true;
+    }).toList();
+  }
+
   /// Gets queue statistics
   Map<String, dynamic> getStatistics() {
     _ensureInitialized();
@@ -207,6 +307,7 @@ class OfflineQueue {
     final totalRequests = _queue.length;
     final priorityGroups = <int, int>{};
     final methodGroups = <String, int>{};
+    final retryGroups = <int, int>{};
     var oldestRequest = now;
     var newestRequest = DateTime(1970);
 
@@ -218,6 +319,10 @@ class OfflineQueue {
       // Method groups
       methodGroups[request.method] = (methodGroups[request.method] ?? 0) + 1;
 
+      // Retry count groups
+      retryGroups[request.retryCount] =
+          (retryGroups[request.retryCount] ?? 0) + 1;
+
       // Age tracking
       if (request.createdAt.isBefore(oldestRequest)) {
         oldestRequest = request.createdAt;
@@ -227,22 +332,37 @@ class OfflineQueue {
       }
     }
 
-    return {
+    final stats = {
       'totalRequests': totalRequests,
       'maxQueueSize': config.maxQueueSize,
       'utilizationPercent': (totalRequests / config.maxQueueSize * 100).round(),
       'priorityGroups': priorityGroups,
       'methodGroups': methodGroups,
+      'retryGroups': retryGroups,
       'oldestRequest': oldestRequest.toIso8601String(),
       'newestRequest': newestRequest.toIso8601String(),
+      'deadLetterQueueSize': deadLetterQueueSize,
     };
+
+    // Add dead letter queue statistics if enabled
+    if (_deadLetterQueue != null) {
+      stats['deadLetterQueueStats'] = _deadLetterQueue!.getStatistics();
+    }
+
+    return stats;
   }
+
+  /// Gets dead letter queue if enabled
+  DeadLetterQueue? get deadLetterQueue => _deadLetterQueue;
 
   /// Disposes of the queue and cleans up resources
   Future<void> dispose() async {
     if (config.persistQueue && _initialized) {
       await _persistQueue();
     }
+
+    await _deadLetterQueue?.dispose();
+
     _queue.clear();
     _initialized = false;
     _log('Offline queue disposed');
