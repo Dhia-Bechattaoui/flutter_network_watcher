@@ -11,7 +11,7 @@ environment:
   flutter: ">=3.0.0"
 
 dependencies:
-  connectivity_plus: ^6.0.0
+  connectivity_plus: ^7.0.0
   flutter:
     sdk: flutter
   flutter_web_plugins:
@@ -32,7 +32,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.example.flutter_network_watcher
+        package: com.github.dhia_bechattoui.flutter_network_watcher
         pluginClass: FlutterNetworkWatcherPlugin
       ios:
         pluginClass: FlutterNetworkWatcherPlugin

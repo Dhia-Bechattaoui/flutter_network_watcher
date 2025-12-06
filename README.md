@@ -336,11 +336,11 @@ try {
 ## Platform Support
 
 - ✅ **Android**: Full support with native connectivity monitoring
-- ✅ **iOS**: Full support with native connectivity monitoring
-- ✅ **Web**: Basic support (limited connectivity detection)
-- ✅ **Windows**: Full support with native connectivity monitoring
-- ✅ **macOS**: Full support with native connectivity monitoring
-- ✅ **Linux**: Full support with native connectivity monitoring
+- ✅ **iOS**: Full support with native connectivity monitoring (CocoaPods + Swift Package Manager)
+- ✅ **Web**: Full support with WASM compatibility
+- ✅ **Windows**: Full support with native connectivity monitoring (C++ implementation)
+- ✅ **macOS**: Full support with native connectivity monitoring (Swift implementation + SPM)
+- ✅ **Linux**: Full support with native connectivity monitoring (C++ implementation)
 
 ## Example
 
