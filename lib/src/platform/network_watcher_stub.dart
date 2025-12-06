@@ -4,17 +4,24 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../dead_letter_queue.dart';
 import '../exceptions/network_exceptions.dart';
 import '../models/connectivity_state.dart';
 import '../models/network_request.dart';
 import '../models/network_watcher_config.dart';
 import '../offline_queue.dart';
-import '../dead_letter_queue.dart';
 import 'network_watcher_base.dart';
 
 /// Stub implementation for unsupported platforms
 class NetworkWatcherPlatform extends NetworkWatcherBase {
+  /// Creates a new NetworkWatcher instance
+  NetworkWatcherPlatform({this.config = NetworkWatcherConfig.defaultConfig}) {
+    _offlineQueue = OfflineQueue(config: config);
+    _initializeConnectivityMonitoring();
+  }
+
   /// Configuration for the network watcher
+  @override
   final NetworkWatcherConfig config;
 
   /// Offline queue manager
@@ -28,8 +35,9 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
       BehaviorSubject<ConnectivityState>.seeded(ConnectivityState.unknown);
 
   /// Stream controller for network status (online/offline)
-  final BehaviorSubject<bool> _onlineController =
-      BehaviorSubject<bool>.seeded(false);
+  final BehaviorSubject<bool> _onlineController = BehaviorSubject<bool>.seeded(
+    false,
+  );
 
   /// Timer for periodic connectivity checks
   Timer? _connectivityTimer;
@@ -44,43 +52,45 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   bool _isProcessingQueue = false;
 
   /// Expose active state
+  @override
   bool get isActive => _isActive;
 
-  /// Creates a new NetworkWatcher instance
-  NetworkWatcherPlatform({
-    this.config = NetworkWatcherConfig.defaultConfig,
-  }) {
-    _offlineQueue = OfflineQueue(config: config);
-    _initializeConnectivityMonitoring();
-  }
-
   /// Stream of connectivity state changes
+  @override
   Stream<ConnectivityState> get connectivityStream =>
       _connectivityController.stream.distinct();
 
   /// Stream of online/offline status changes
+  @override
   Stream<bool> get onlineStream => _onlineController.stream.distinct();
 
   /// Current connectivity state
+  @override
   ConnectivityState get currentConnectivityState =>
       _connectivityController.value;
 
   /// Whether the device is currently online
+  @override
   bool get isOnline => _onlineController.value;
 
   /// Whether the device is currently offline
+  @override
   bool get isOffline => !isOnline;
 
   /// Number of requests currently in the offline queue
+  @override
   int get queueSize => _offlineQueue.size;
 
   /// List of all requests in the offline queue
+  @override
   List<NetworkRequest> get queuedRequests => _offlineQueue.getAllRequests();
 
   /// Number of requests in the dead letter queue
+  @override
   int get deadLetterQueueSize => _offlineQueue.deadLetterQueueSize;
 
   /// Starts monitoring network connectivity
+  @override
   Future<void> start() async {
     if (_isActive) {
       return;
@@ -96,8 +106,9 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
     await _checkConnectivity();
 
     // Start listening to connectivity changes
-    _connectivitySubscription =
-        _connectivity.onConnectivityChanged.listen(_onConnectivityChanged);
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
+      _onConnectivityChanged,
+    );
 
     // Start periodic connectivity checks
     _startPeriodicConnectivityCheck();
@@ -106,6 +117,7 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Stops monitoring network connectivity
+  @override
   Future<void> stop() async {
     if (!_isActive) {
       return;
@@ -128,7 +140,8 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Queues a network request for execution when online
-  Future<void> queueRequest(NetworkRequest request) async {
+  @override
+  Future<void> queueRequest(final NetworkRequest request) async {
     if (!_isActive) {
       throw const QueueException('NetworkWatcher is not active');
     }
@@ -138,7 +151,7 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
       try {
         await _executeRequest(request);
         return;
-      } catch (e) {
+      } on Exception catch (e) {
         _log('Failed to execute request immediately, queueing: $e');
         // Fall through to queue the request
       }
@@ -150,7 +163,8 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Removes a specific request from the queue
-  Future<bool> removeRequest(String requestId) async {
+  @override
+  Future<bool> removeRequest(final String requestId) async {
     final removed = await _offlineQueue.remove(requestId);
     if (removed) {
       _log('Request removed from queue: $requestId');
@@ -159,17 +173,20 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Clears all requests from the queue
+  @override
   Future<void> clearQueue() async {
     await _offlineQueue.clear();
     _log('Queue cleared');
   }
 
   /// Forces a connectivity check
+  @override
   Future<void> checkConnectivity() async {
     await _checkConnectivity();
   }
 
   /// Manually processes the offline queue
+  @override
   Future<void> processQueue() async {
     if (!isOnline) {
       _log('Cannot process queue while offline');
@@ -180,25 +197,25 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Gets retry statistics for a specific request
-  Map<String, dynamic> getRetryStats(String requestId) {
-    return _offlineQueue.getRetryStats(requestId);
-  }
+  @override
+  Map<String, dynamic> getRetryStats(final String requestId) =>
+      _offlineQueue.getRetryStats(requestId);
 
   /// Gets all requests that are ready for retry
-  List<NetworkRequest> getRequestsReadyForRetry() {
-    return _offlineQueue.getRequestsReadyForRetry();
-  }
+  @override
+  List<NetworkRequest> getRequestsReadyForRetry() =>
+      _offlineQueue.getRequestsReadyForRetry();
 
   /// Gets comprehensive queue statistics
-  Map<String, dynamic> getQueueStatistics() {
-    return _offlineQueue.getStatistics();
-  }
+  @override
+  Map<String, dynamic> getQueueStatistics() => _offlineQueue.getStatistics();
 
   /// Gets dead letter queue if enabled
   @override
   DeadLetterQueue? get deadLetterQueue => _offlineQueue.deadLetterQueue;
 
   /// Disposes of all resources
+  @override
   Future<void> dispose() async {
     await stop();
     await _connectivityController.close();
@@ -207,10 +224,11 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
 
   /// Initializes connectivity monitoring
   void _initializeConnectivityMonitoring() {
-    // Listen for online status changes and process queue when coming back online
-    onlineStream.listen((isOnline) {
+    // Listen for online status changes and process queue when coming back
+    // online
+    onlineStream.listen((final isOnline) {
       if (isOnline && config.autoRetry) {
-        _processOfflineQueue();
+        unawaited(_processOfflineQueue());
       }
     });
   }
@@ -219,13 +237,13 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   void _startPeriodicConnectivityCheck() {
     _connectivityTimer = Timer.periodic(config.checkInterval, (_) {
       if (_isActive) {
-        _checkConnectivity();
+        unawaited(_checkConnectivity());
       }
     });
   }
 
   /// Handles connectivity changes from the connectivity plugin
-  void _onConnectivityChanged(List<ConnectivityResult> results) {
+  void _onConnectivityChanged(final List<ConnectivityResult> results) {
     final result = results.isNotEmpty ? results.first : ConnectivityResult.none;
     _log('Connectivity changed: $result');
 
@@ -237,7 +255,7 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
     // If we just came back online, process the offline queue
     if (!previousState.isConnected && newState.isConnected) {
       _log('Device came back online, processing offline queue');
-      _processOfflineQueue();
+      unawaited(_processOfflineQueue());
     }
   }
 
@@ -245,8 +263,9 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   Future<void> _checkConnectivity() async {
     try {
       final results = await _connectivity.checkConnectivity();
-      final result =
-          results.isNotEmpty ? results.first : ConnectivityResult.none;
+      final result = results.isNotEmpty
+          ? results.first
+          : ConnectivityResult.none;
       final state = _mapConnectivityResult(result);
       _updateConnectivityState(state);
 
@@ -257,21 +276,20 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
           _updateConnectivityState(ConnectivityState.none);
         }
       }
-    } catch (e) {
+    } on Exception catch (e) {
       _log('Error checking connectivity: $e');
       _updateConnectivityState(ConnectivityState.unknown);
     }
   }
 
   /// Performs an internet connectivity test (stub implementation)
-  Future<bool> _checkInternetConnectivity() async {
-    // Stub implementation - always returns true
-    // Real implementations would do actual connectivity tests
-    return true;
-  }
+  Future<bool> _checkInternetConnectivity() async =>
+      // Stub implementation - always returns true
+      // Real implementations would do actual connectivity tests
+      true;
 
   /// Updates the connectivity state and notifies listeners
-  void _updateConnectivityState(ConnectivityState state) {
+  void _updateConnectivityState(final ConnectivityState state) {
     if (_connectivityController.value != state) {
       _connectivityController.add(state);
       _onlineController.add(state.isConnected);
@@ -280,20 +298,23 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Expose connectivity state update
-  void updateConnectivityState(ConnectivityState state) {
+  @override
+  void updateConnectivityState(final ConnectivityState state) {
     final previousState = _connectivityController.value;
     _updateConnectivityState(state);
 
     // If we just came back online, process the offline queue
     if (!previousState.isConnected && state.isConnected) {
       _log(
-          'Device came back online via updateConnectivityState, processing offline queue');
-      _processOfflineQueue();
+        'Device came back online via updateConnectivityState, processing '
+        'offline queue',
+      );
+      unawaited(_processOfflineQueue());
     }
   }
 
   /// Maps ConnectivityResult to ConnectivityState
-  ConnectivityState _mapConnectivityResult(ConnectivityResult result) {
+  ConnectivityState _mapConnectivityResult(final ConnectivityResult result) {
     switch (result) {
       case ConnectivityResult.wifi:
         return ConnectivityState.wifi;
@@ -311,7 +332,7 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Expose connectivity result mapping
-  ConnectivityState mapConnectivityResult(ConnectivityResult result) =>
+  ConnectivityState mapConnectivityResult(final ConnectivityResult result) =>
       _mapConnectivityResult(result);
 
   /// Processes all requests in the offline queue
@@ -331,8 +352,9 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
 
     try {
       // Collect all requests first to avoid modification during iteration
-      final requests =
-          List<NetworkRequest>.from(_offlineQueue.getAllRequests());
+      final requests = List<NetworkRequest>.from(
+        _offlineQueue.getAllRequests(),
+      );
 
       for (final request in requests) {
         if (!isOnline) {
@@ -341,13 +363,14 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
         }
 
         _log(
-            'Processing request: ${request.id} (retries: ${request.retryCount}/${request.maxRetries})');
+          'Processing request: ${request.id} (retries: ${request.retryCount}/${request.maxRetries})',
+        );
 
         try {
           await _executeRequest(request);
           await _offlineQueue.remove(request.id);
           _log('Successfully executed queued request: ${request.id}');
-        } catch (e) {
+        } on Exception catch (e) {
           _log('Failed to execute queued request ${request.id}: $e');
 
           if (request.canRetry) {
@@ -359,7 +382,9 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
             // Check if the updated request can still be retried
             if (!updatedRequest.canRetry) {
               _log(
-                  'Request ${request.id} exceeded max retries after update, removing from queue');
+                'Request ${request.id} exceeded max retries after update, '
+                'removing from queue',
+              );
               await _offlineQueue.remove(request.id);
             } else {
               // Apply retry delay if configured
@@ -371,7 +396,8 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
             }
           } else {
             _log(
-                'Request ${request.id} exceeded max retries, removing from queue');
+              'Request ${request.id} exceeded max retries, removing from queue',
+            );
             // Remove request if max retries exceeded
             await _offlineQueue.remove(request.id);
             _log('Removed request ${request.id} after max retries');
@@ -385,9 +411,10 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   /// Executes a network request (placeholder implementation)
-  Future<void> _executeRequest(NetworkRequest request) async {
+  Future<void> _executeRequest(final NetworkRequest request) async {
     // This is a placeholder implementation
-    // In a real implementation, you would use an HTTP client to execute the request
+    // In a real implementation, you would use an HTTP client to execute the
+    // request
     _log('Executing request: ${request.method} ${request.url}');
 
     // Simulate network delay
@@ -395,15 +422,12 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
 
     // Simulate random failures for testing
     if (request.url.contains('fail')) {
-      throw RequestExecutionException(
-        request.id,
-        'Simulated request failure',
-      );
+      throw RequestExecutionException(request.id, 'Simulated request failure');
     }
   }
 
   /// Logs a message if logging is enabled
-  void _log(String message) {
+  void _log(final String message) {
     if (config.enableLogging && kDebugMode) {
       debugPrint('[NetworkWatcher] $message');
     }

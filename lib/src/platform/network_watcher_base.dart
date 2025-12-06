@@ -42,10 +42,10 @@ abstract class NetworkWatcherBase {
   Future<void> stop();
 
   /// Queues a network request for execution when online
-  Future<void> queueRequest(NetworkRequest request);
+  Future<void> queueRequest(final NetworkRequest request);
 
   /// Removes a specific request from the queue
-  Future<bool> removeRequest(String requestId);
+  Future<bool> removeRequest(final String requestId);
 
   /// Clears all requests from the queue
   Future<void> clearQueue();
@@ -57,7 +57,7 @@ abstract class NetworkWatcherBase {
   Future<void> processQueue();
 
   /// Gets retry statistics for a specific request
-  Map<String, dynamic> getRetryStats(String requestId);
+  Map<String, dynamic> getRetryStats(final String requestId);
 
   /// Gets all requests that are ready for retry
   List<NetworkRequest> getRequestsReadyForRetry();
@@ -72,5 +72,5 @@ abstract class NetworkWatcherBase {
   Future<void> dispose();
 
   /// For testing: expose connectivity state update
-  void updateConnectivityState(ConnectivityState state);
+  void updateConnectivityState(final ConnectivityState state);
 }

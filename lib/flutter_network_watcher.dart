@@ -15,7 +15,7 @@
 /// Platform Support:
 /// - iOS, Android, Windows, macOS, Linux: Full native support
 /// - Web: WASM-compatible web implementation
-library flutter_network_watcher;
+library;
 
 export 'src/dead_letter_queue.dart';
 export 'src/exceptions/network_exceptions.dart';

@@ -1,22 +1,26 @@
 import 'dart:math';
 
+import 'exceptions/network_exceptions.dart';
 import 'models/network_request.dart';
 import 'models/network_watcher_config.dart';
-import 'exceptions/network_exceptions.dart';
 
 /// Manages retry logic for network requests
 class RetryManager {
+  /// Creates a new RetryManager
+  RetryManager({required this.config});
+
   /// Configuration for retry behavior
   final NetworkWatcherConfig config;
 
   /// Random number generator for jitter
   final Random _random = Random();
 
-  /// Creates a new RetryManager
-  RetryManager({required this.config});
-
   /// Determines if a request should be retried based on the error
-  bool shouldRetry(NetworkRequest request, Object error, [int? statusCode]) {
+  bool shouldRetry(
+    final NetworkRequest request,
+    final Object error, [
+    final int? statusCode,
+  ]) {
     // Check if request has exceeded max retries
     if (!request.canRetry) {
       return false;
@@ -46,7 +50,7 @@ class RetryManager {
   }
 
   /// Calculates the retry delay for a request
-  Duration calculateRetryDelay(NetworkRequest request) {
+  Duration calculateRetryDelay(final NetworkRequest request) {
     Duration delay;
 
     // Use custom strategy if provided
@@ -72,14 +76,15 @@ class RetryManager {
 
   /// Creates a new request with updated retry information
   NetworkRequest prepareForRetry(
-    NetworkRequest request,
-    Object error, [
-    int? statusCode,
+    final NetworkRequest request,
+    final Object error, [
+    final int? statusCode,
   ]) {
     final delay = calculateRetryDelay(request);
 
     // Extract status code from RequestExecutionException if not provided
-    final effectiveStatusCode = statusCode ??
+    final effectiveStatusCode =
+        statusCode ??
         (error is RequestExecutionException ? error.statusCode : null);
 
     return request.withIncrementedRetry(
@@ -90,13 +95,23 @@ class RetryManager {
   }
 
   /// Classifies an error into a standard error type
-  String _classifyError(Object error, int? statusCode) {
+  String _classifyError(final Object error, final int? statusCode) {
     if (statusCode != null) {
-      if (statusCode >= 500) return 'server_error';
-      if (statusCode >= 400) return 'client_error';
-      if (statusCode >= 300) return 'redirect';
-      if (statusCode >= 200) return 'success';
-      if (statusCode >= 100) return 'informational';
+      if (statusCode >= 500) {
+        return 'server_error';
+      }
+      if (statusCode >= 400) {
+        return 'client_error';
+      }
+      if (statusCode >= 300) {
+        return 'redirect';
+      }
+      if (statusCode >= 200) {
+        return 'success';
+      }
+      if (statusCode >= 100) {
+        return 'informational';
+      }
     }
 
     if (error is RequestExecutionException) {
@@ -122,7 +137,7 @@ class RetryManager {
   }
 
   /// Determines if a network error type is retryable
-  bool _isRetryableNetworkError(String errorType) {
+  bool _isRetryableNetworkError(final String errorType) {
     const retryableTypes = [
       'timeout',
       'connection_error',
@@ -134,8 +149,8 @@ class RetryManager {
   }
 
   /// Adds jitter to a delay to prevent thundering herd
-  Duration _addJitter(Duration delay) {
-    final jitterFactor = 0.1; // 10% jitter
+  Duration _addJitter(final Duration delay) {
+    const jitterFactor = 0.1; // 10% jitter
     final jitterMs = (delay.inMilliseconds * jitterFactor).round();
     final actualJitter = _random.nextInt(jitterMs * 2) - jitterMs;
 
@@ -143,7 +158,7 @@ class RetryManager {
   }
 
   /// Gets a human-readable failure reason
-  String _getFailureReason(Object error, int? statusCode) {
+  String _getFailureReason(final Object error, final int? statusCode) {
     if (statusCode != null) {
       return 'HTTP $statusCode: ${_getStatusMessage(statusCode)}';
     }
@@ -156,7 +171,7 @@ class RetryManager {
   }
 
   /// Gets a human-readable message for HTTP status codes
-  String _getStatusMessage(int statusCode) {
+  String _getStatusMessage(final int statusCode) {
     switch (statusCode) {
       case 400:
         return 'Bad Request';
@@ -196,7 +211,7 @@ class RetryManager {
   }
 
   /// Gets retry statistics for a request
-  Map<String, dynamic> getRetryStats(NetworkRequest request) {
+  Map<String, dynamic> getRetryStats(final NetworkRequest request) {
     final now = DateTime.now();
     final lastRetry = request.lastRetryTime;
 
@@ -205,17 +220,19 @@ class RetryManager {
       'maxRetries': request.maxRetries,
       'canRetry': request.canRetry,
       'lastRetryTime': lastRetry?.toIso8601String(),
-      'timeSinceLastRetry':
-          lastRetry != null ? now.difference(lastRetry).inSeconds : null,
-      'nextRetryDelay':
-          request.canRetry ? calculateRetryDelay(request).inMilliseconds : null,
+      'timeSinceLastRetry': lastRetry != null
+          ? now.difference(lastRetry).inSeconds
+          : null,
+      'nextRetryDelay': request.canRetry
+          ? calculateRetryDelay(request).inMilliseconds
+          : null,
       'failureReason': request.failureReason,
       'lastFailureStatusCode': request.lastFailureStatusCode,
     };
   }
 
   /// Determines if a request should be moved to dead letter queue
-  bool shouldMoveToDeadLetter(NetworkRequest request) {
+  bool shouldMoveToDeadLetter(final NetworkRequest request) {
     if (!config.deadLetterQueueEnabled) {
       return false;
     }

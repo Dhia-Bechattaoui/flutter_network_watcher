@@ -8,13 +8,13 @@ void main() {
         id: 'test_id',
         method: 'GET',
         url: 'https://example.com',
-        createdAt: DateTime(2024, 1, 1, 12, 0, 0),
+        createdAt: DateTime(2024, 1, 1, 12),
       );
 
       expect(request.id, equals('test_id'));
       expect(request.method, equals('GET'));
       expect(request.url, equals('https://example.com'));
-      expect(request.createdAt, equals(DateTime(2024, 1, 1, 12, 0, 0)));
+      expect(request.createdAt, equals(DateTime(2024, 1, 1, 12)));
       expect(request.retryCount, equals(0));
       expect(request.maxRetries, equals(3));
       expect(request.priority, equals(0));
@@ -25,8 +25,10 @@ void main() {
       expect(request.retryDelay, isNull);
       expect(request.failureReason, isNull);
       expect(request.lastFailureStatusCode, isNull);
-      expect(request.retryableErrorTypes,
-          equals(['timeout', 'network_error', 'server_error']));
+      expect(
+        request.retryableErrorTypes,
+        equals(['timeout', 'network_error', 'server_error']),
+      );
       expect(request.retryOnSpecificErrors, isFalse);
     });
 
@@ -35,18 +37,18 @@ void main() {
         id: 'test_id',
         method: 'POST',
         url: 'https://example.com/api',
-        headers: {'Content-Type': 'application/json'},
+        headers: const {'Content-Type': 'application/json'},
         body: 'test body',
-        createdAt: DateTime(2024, 1, 1, 12, 0, 0),
+        createdAt: DateTime(2024, 1, 1, 12),
         retryCount: 1,
         maxRetries: 5,
         priority: 10,
-        metadata: {'key': 'value'},
-        lastRetryTime: DateTime(2024, 1, 1, 12, 5, 0),
+        metadata: const {'key': 'value'},
+        lastRetryTime: DateTime(2024, 1, 1, 12, 5),
         retryDelay: 5000,
         failureReason: 'timeout',
         lastFailureStatusCode: 408,
-        retryableErrorTypes: ['timeout'],
+        retryableErrorTypes: const ['timeout'],
         retryOnSpecificErrors: true,
       );
 
@@ -55,12 +57,12 @@ void main() {
       expect(request.url, equals('https://example.com/api'));
       expect(request.headers, equals({'Content-Type': 'application/json'}));
       expect(request.body, equals('test body'));
-      expect(request.createdAt, equals(DateTime(2024, 1, 1, 12, 0, 0)));
+      expect(request.createdAt, equals(DateTime(2024, 1, 1, 12)));
       expect(request.retryCount, equals(1));
       expect(request.maxRetries, equals(5));
       expect(request.priority, equals(10));
       expect(request.metadata, equals({'key': 'value'}));
-      expect(request.lastRetryTime, equals(DateTime(2024, 1, 1, 12, 5, 0)));
+      expect(request.lastRetryTime, equals(DateTime(2024, 1, 1, 12, 5)));
       expect(request.retryDelay, equals(5000));
       expect(request.failureReason, equals('timeout'));
       expect(request.lastFailureStatusCode, equals(408));
@@ -73,7 +75,7 @@ void main() {
         id: 'original',
         method: 'GET',
         url: 'https://example.com',
-        createdAt: DateTime(2024, 1, 1, 12, 0, 0),
+        createdAt: DateTime(2024, 1, 1, 12),
       );
 
       final updated = original.copyWith(
@@ -92,8 +94,7 @@ void main() {
       expect(updated.failureReason, equals('server error'));
       expect(updated.lastFailureStatusCode, equals(500));
       expect(updated.maxRetries, equals(3)); // unchanged
-      expect(updated.createdAt,
-          equals(DateTime(2024, 1, 1, 12, 0, 0))); // unchanged
+      expect(updated.createdAt, equals(DateTime(2024, 1, 1, 12))); // unchanged
     });
 
     test('canRetry returns true when retryCount is less than maxRetries', () {
@@ -103,7 +104,6 @@ void main() {
         url: 'https://example.com',
         createdAt: DateTime.now(),
         retryCount: 2,
-        maxRetries: 3,
       );
 
       expect(request.canRetry, isTrue);
@@ -116,24 +116,24 @@ void main() {
         url: 'https://example.com',
         createdAt: DateTime.now(),
         retryCount: 3,
-        maxRetries: 3,
       );
 
       expect(request.canRetry, isFalse);
     });
 
-    test('shouldRetryOnError returns true when retryOnSpecificErrors is false',
-        () {
-      final request = NetworkRequest(
-        id: 'test',
-        method: 'GET',
-        url: 'https://example.com',
-        createdAt: DateTime.now(),
-        retryOnSpecificErrors: false,
-      );
+    test(
+      'shouldRetryOnError returns true when retryOnSpecificErrors is false',
+      () {
+        final request = NetworkRequest(
+          id: 'test',
+          method: 'GET',
+          url: 'https://example.com',
+          createdAt: DateTime.now(),
+        );
 
-      expect(request.shouldRetryOnError('any_error'), isTrue);
-    });
+        expect(request.shouldRetryOnError('any_error'), isTrue);
+      },
+    );
 
     test('shouldRetryOnError returns true for retryable error types', () {
       final request = NetworkRequest(
@@ -142,7 +142,7 @@ void main() {
         url: 'https://example.com',
         createdAt: DateTime.now(),
         retryOnSpecificErrors: true,
-        retryableErrorTypes: ['timeout', 'server_error'],
+        retryableErrorTypes: const ['timeout', 'server_error'],
       );
 
       expect(request.shouldRetryOnError('timeout'), isTrue);
@@ -156,7 +156,7 @@ void main() {
         url: 'https://example.com',
         createdAt: DateTime.now(),
         retryOnSpecificErrors: true,
-        retryableErrorTypes: ['timeout', 'server_error'],
+        retryableErrorTypes: const ['timeout', 'server_error'],
       );
 
       expect(request.shouldRetryOnError('client_error'), isFalse);
@@ -164,64 +164,66 @@ void main() {
     });
 
     test(
-        'withIncrementedRetry creates new request with incremented retry count',
-        () {
-      final original = NetworkRequest(
-        id: 'test',
-        method: 'GET',
-        url: 'https://example.com',
-        createdAt: DateTime.now(),
-        retryCount: 1,
-        failureReason: 'old error',
-      );
+      'withIncrementedRetry creates new request with incremented retry count',
+      () {
+        final original = NetworkRequest(
+          id: 'test',
+          method: 'GET',
+          url: 'https://example.com',
+          createdAt: DateTime.now(),
+          retryCount: 1,
+          failureReason: 'old error',
+        );
 
-      final updated = original.withIncrementedRetry(
-        failureReason: 'new error',
-        statusCode: 500,
-        retryDelay: 10000,
-      );
+        final updated = original.withIncrementedRetry(
+          failureReason: 'new error',
+          statusCode: 500,
+          retryDelay: 10000,
+        );
 
-      expect(updated.retryCount, equals(2));
-      expect(updated.failureReason, equals('new error'));
-      expect(updated.lastFailureStatusCode, equals(500));
-      expect(updated.retryDelay, equals(10000));
-      expect(updated.lastRetryTime, isNotNull);
-      expect(updated.id, equals('test')); // unchanged
-      expect(updated.method, equals('GET')); // unchanged
-    });
+        expect(updated.retryCount, equals(2));
+        expect(updated.failureReason, equals('new error'));
+        expect(updated.lastFailureStatusCode, equals(500));
+        expect(updated.retryDelay, equals(10000));
+        expect(updated.lastRetryTime, isNotNull);
+        expect(updated.id, equals('test')); // unchanged
+        expect(updated.method, equals('GET')); // unchanged
+      },
+    );
 
-    test('withFailureInfo creates new request with updated failure information',
-        () {
-      final original = NetworkRequest(
-        id: 'test',
-        method: 'GET',
-        url: 'https://example.com',
-        createdAt: DateTime.now(),
-      );
+    test(
+      'withFailureInfo creates new request with updated failure information',
+      () {
+        final original = NetworkRequest(
+          id: 'test',
+          method: 'GET',
+          url: 'https://example.com',
+          createdAt: DateTime.now(),
+        );
 
-      final updated = original.withFailureInfo(
-        failureReason: 'connection timeout',
-        statusCode: 408,
-      );
+        final updated = original.withFailureInfo(
+          failureReason: 'connection timeout',
+          statusCode: 408,
+        );
 
-      expect(updated.failureReason, equals('connection timeout'));
-      expect(updated.lastFailureStatusCode, equals(408));
-      expect(updated.id, equals('test')); // unchanged
-      expect(updated.retryCount, equals(0)); // unchanged
-    });
+        expect(updated.failureReason, equals('connection timeout'));
+        expect(updated.lastFailureStatusCode, equals(408));
+        expect(updated.id, equals('test')); // unchanged
+        expect(updated.retryCount, equals(0)); // unchanged
+      },
+    );
 
     test('toJson converts to correct JSON map', () {
       final request = NetworkRequest(
         id: 'test_id',
         method: 'POST',
         url: 'https://example.com/api',
-        headers: {'Content-Type': 'application/json'},
+        headers: const {'Content-Type': 'application/json'},
         body: 'test body',
-        createdAt: DateTime(2024, 1, 1, 12, 0, 0),
+        createdAt: DateTime(2024, 1, 1, 12),
         retryCount: 1,
-        maxRetries: 3,
         priority: 5,
-        metadata: {'key': 'value'},
+        metadata: const {'key': 'value'},
       );
 
       final json = request.toJson();
@@ -240,8 +242,10 @@ void main() {
       expect(json['retryDelay'], isNull);
       expect(json['failureReason'], isNull);
       expect(json['lastFailureStatusCode'], isNull);
-      expect(json['retryableErrorTypes'],
-          equals(['timeout', 'network_error', 'server_error']));
+      expect(
+        json['retryableErrorTypes'],
+        equals(['timeout', 'network_error', 'server_error']),
+      );
       expect(json['retryOnSpecificErrors'], isFalse);
     });
 
@@ -272,12 +276,12 @@ void main() {
       expect(request.url, equals('https://example.com/api'));
       expect(request.headers, equals({'Content-Type': 'application/json'}));
       expect(request.body, equals('test body'));
-      expect(request.createdAt, equals(DateTime(2024, 1, 1, 12, 0, 0)));
+      expect(request.createdAt, equals(DateTime(2024, 1, 1, 12)));
       expect(request.retryCount, equals(1));
       expect(request.maxRetries, equals(3));
       expect(request.priority, equals(5));
       expect(request.metadata, equals({'key': 'value'}));
-      expect(request.lastRetryTime, equals(DateTime(2024, 1, 1, 12, 5, 0)));
+      expect(request.lastRetryTime, equals(DateTime(2024, 1, 1, 12, 5)));
       expect(request.retryDelay, equals(5000));
       expect(request.failureReason, equals('timeout'));
       expect(request.lastFailureStatusCode, equals(408));
@@ -286,11 +290,11 @@ void main() {
     });
 
     test('fromJson handles missing optional fields', () {
-      final json = {
+      final json = <String, dynamic>{
         'id': 'test_id',
         'method': 'GET',
         'url': 'https://example.com',
-        'headers': {},
+        'headers': <String, String>{},
         'createdAt': '2024-01-01T12:00:00.000',
       };
 
@@ -304,8 +308,10 @@ void main() {
       expect(request.retryDelay, isNull);
       expect(request.failureReason, isNull);
       expect(request.lastFailureStatusCode, isNull);
-      expect(request.retryableErrorTypes,
-          equals(['timeout', 'network_error', 'server_error']));
+      expect(
+        request.retryableErrorTypes,
+        equals(['timeout', 'network_error', 'server_error']),
+      );
       expect(request.retryOnSpecificErrors, isFalse);
     });
 
@@ -314,7 +320,7 @@ void main() {
         id: 'test_id',
         method: 'GET',
         url: 'https://example.com',
-        createdAt: DateTime(2024, 1, 1, 12, 0, 0),
+        createdAt: DateTime(2024, 1, 1, 12),
       );
 
       final jsonString = request.toJsonString();
@@ -326,7 +332,7 @@ void main() {
     });
 
     test('fromJsonString creates request from JSON string', () {
-      final jsonString = '''
+      const jsonString = '''
         {
           "id": "test_id",
           "method": "GET",
@@ -377,7 +383,9 @@ void main() {
         id: 'same_id',
         method: 'POST', // different method
         url: 'https://different.com', // different URL
-        createdAt: DateTime.now().add(Duration(hours: 1)), // different time
+        createdAt: DateTime.now().add(
+          const Duration(hours: 1),
+        ), // different time
       );
 
       final request3 = NetworkRequest(

@@ -6,7 +6,7 @@ void main() {
 
   group('NetworkWatcherConfig', () {
     test('default constructor sets correct values', () {
-      const config = NetworkWatcherConfig();
+      const config = NetworkWatcherConfig.defaultConfig;
 
       expect(config.checkInterval, equals(const Duration(seconds: 5)));
       expect(config.autoRetry, isTrue);
@@ -18,7 +18,7 @@ void main() {
     });
 
     test('custom constructor sets provided values', () {
-      Duration customRetryDelay(int retryCount) =>
+      Duration customRetryDelay(final int retryCount) =>
           Duration(seconds: retryCount);
 
       final config = NetworkWatcherConfig(
@@ -74,7 +74,7 @@ void main() {
     });
 
     test('copyWith creates new instance with updated values', () {
-      const original = NetworkWatcherConfig();
+      const original = NetworkWatcherConfig.defaultConfig;
 
       final updated = original.copyWith(
         checkInterval: const Duration(seconds: 15),
@@ -111,41 +111,69 @@ void main() {
 
     group('retry delay strategies', () {
       test('defaultRetryDelay uses exponential backoff with limits', () {
-        expect(NetworkWatcherConfig.defaultRetryDelay(0),
-            equals(const Duration(seconds: 1)));
-        expect(NetworkWatcherConfig.defaultRetryDelay(1),
-            equals(const Duration(seconds: 2)));
-        expect(NetworkWatcherConfig.defaultRetryDelay(2),
-            equals(const Duration(seconds: 4)));
-        expect(NetworkWatcherConfig.defaultRetryDelay(3),
-            equals(const Duration(seconds: 6)));
-        expect(NetworkWatcherConfig.defaultRetryDelay(5),
-            equals(const Duration(seconds: 10)));
-        expect(NetworkWatcherConfig.defaultRetryDelay(10),
-            equals(const Duration(seconds: 20)));
-        expect(NetworkWatcherConfig.defaultRetryDelay(100),
-            equals(const Duration(seconds: 60))); // clamped
+        expect(
+          NetworkWatcherConfig.defaultRetryDelay(0),
+          equals(const Duration(seconds: 1)),
+        );
+        expect(
+          NetworkWatcherConfig.defaultRetryDelay(1),
+          equals(const Duration(seconds: 2)),
+        );
+        expect(
+          NetworkWatcherConfig.defaultRetryDelay(2),
+          equals(const Duration(seconds: 4)),
+        );
+        expect(
+          NetworkWatcherConfig.defaultRetryDelay(3),
+          equals(const Duration(seconds: 6)),
+        );
+        expect(
+          NetworkWatcherConfig.defaultRetryDelay(5),
+          equals(const Duration(seconds: 10)),
+        );
+        expect(
+          NetworkWatcherConfig.defaultRetryDelay(10),
+          equals(const Duration(seconds: 20)),
+        );
+        expect(
+          NetworkWatcherConfig.defaultRetryDelay(100),
+          equals(const Duration(seconds: 60)),
+        ); // clamped
       });
 
       test('linearRetryDelay uses linear progression with limits', () {
-        expect(NetworkWatcherConfig.linearRetryDelay(0),
-            equals(const Duration(seconds: 5)));
-        expect(NetworkWatcherConfig.linearRetryDelay(1),
-            equals(const Duration(seconds: 5)));
-        expect(NetworkWatcherConfig.linearRetryDelay(2),
-            equals(const Duration(seconds: 10)));
-        expect(NetworkWatcherConfig.linearRetryDelay(3),
-            equals(const Duration(seconds: 15)));
-        expect(NetworkWatcherConfig.linearRetryDelay(5),
-            equals(const Duration(seconds: 25)));
-        expect(NetworkWatcherConfig.linearRetryDelay(10),
-            equals(const Duration(seconds: 30))); // clamped
+        expect(
+          NetworkWatcherConfig.linearRetryDelay(0),
+          equals(const Duration(seconds: 5)),
+        );
+        expect(
+          NetworkWatcherConfig.linearRetryDelay(1),
+          equals(const Duration(seconds: 5)),
+        );
+        expect(
+          NetworkWatcherConfig.linearRetryDelay(2),
+          equals(const Duration(seconds: 10)),
+        );
+        expect(
+          NetworkWatcherConfig.linearRetryDelay(3),
+          equals(const Duration(seconds: 15)),
+        );
+        expect(
+          NetworkWatcherConfig.linearRetryDelay(5),
+          equals(const Duration(seconds: 25)),
+        );
+        expect(
+          NetworkWatcherConfig.linearRetryDelay(10),
+          equals(const Duration(seconds: 30)),
+        ); // clamped
       });
 
       test('fixedRetryDelay always returns same duration', () {
-        for (int i = 0; i < 10; i++) {
-          expect(NetworkWatcherConfig.fixedRetryDelay(i),
-              equals(const Duration(seconds: 10)));
+        for (var i = 0; i < 10; i++) {
+          expect(
+            NetworkWatcherConfig.fixedRetryDelay(i),
+            equals(const Duration(seconds: 10)),
+          );
         }
       });
     });

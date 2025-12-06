@@ -187,49 +187,6 @@ class _RetryExampleState extends State<RetryExample> {
     );
   }
 
-  Future<void> _showRetryStats(String requestId) async {
-    final stats = _networkWatcher.getRetryStats(requestId);
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Retry Stats for $requestId'),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (stats.containsKey('error'))
-              Text('Error: ${stats['error']}',
-                  style: const TextStyle(color: Colors.red))
-            else ...[
-              Text(
-                  'Retry Count: ${stats['retryCount']}/${stats['maxRetries']}'),
-              Text('Can Retry: ${stats['canRetry']}'),
-              if (stats['lastRetryTime'] != null)
-                Text('Last Retry: ${stats['lastRetryTime']}'),
-              if (stats['timeSinceLastRetry'] != null)
-                Text(
-                    'Time Since Last Retry: ${stats['timeSinceLastRetry']} seconds'),
-              if (stats['nextRetryDelay'] != null)
-                Text(
-                    'Next Retry Delay: ${(stats['nextRetryDelay'] / 1000).round()} seconds'),
-              if (stats['failureReason'] != null)
-                Text('Failure Reason: ${stats['failureReason']}'),
-              if (stats['lastFailureStatusCode'] != null)
-                Text('Last Status Code: ${stats['lastFailureStatusCode']}'),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _processQueue() async {
     try {
       await _networkWatcher.processQueue();

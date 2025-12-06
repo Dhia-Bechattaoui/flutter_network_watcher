@@ -1,14 +1,14 @@
 name: flutter_network_watcher
 description: Real-time network connectivity monitoring with offline queue management for Flutter applications.
-version: 0.0.4
+version: 0.0.5
 homepage: https://pub.dev/packages/flutter_network_watcher
 repository: https://github.com/Dhia-Bechattaoui/flutter_network_watcher
 issue_tracker: https://github.com/Dhia-Bechattaoui/flutter_network_watcher/issues
 documentation: https://pub.dev/documentation/flutter_network_watcher
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
-  flutter: ">=3.0.0"
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: ">=3.24.0"
 
 dependencies:
   connectivity_plus: ^7.0.0
@@ -16,6 +16,7 @@ dependencies:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
+  http: ^1.0.0
   rxdart: ^0.28.0
   shared_preferences: ^2.0.0
   web: ^1.0.0
@@ -53,3 +54,6 @@ topics:
   - offline
   - queue
   - monitoring
+
+funding:
+  - https://github.com/sponsors/Dhia-Bechattaoui

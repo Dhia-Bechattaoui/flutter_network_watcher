@@ -11,12 +11,6 @@ void main() {
 
     setUp(() {
       config = const NetworkWatcherConfig(
-        maxRetryDelay: Duration(minutes: 5),
-        retryJitter: true,
-        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
-        retryOnNetworkErrors: true,
-        retryOnServerErrors: true,
-        retryOnClientErrors: false,
         deadLetterQueueEnabled: true, // Enable dead letter queue for tests
       );
       retryManager = RetryManager(config: config);
@@ -30,7 +24,6 @@ void main() {
           url: 'https://example.com',
           createdAt: DateTime.now(),
           retryCount: 3,
-          maxRetries: 3,
         );
 
         final result = retryManager.shouldRetry(request, 'error');
@@ -44,7 +37,6 @@ void main() {
           url: 'https://example.com',
           createdAt: DateTime.now(),
           retryCount: 1,
-          maxRetries: 3,
         );
 
         final result = retryManager.shouldRetry(request, 'timeout');
@@ -58,7 +50,7 @@ void main() {
           url: 'https://example.com',
           createdAt: DateTime.now(),
           retryOnSpecificErrors: true,
-          retryableErrorTypes: ['timeout'],
+          retryableErrorTypes: const ['timeout'],
         );
 
         final result = retryManager.shouldRetry(request, 'timeout');
@@ -123,7 +115,7 @@ void main() {
     group('calculateRetryDelay', () {
       test('uses custom retry delay strategy when provided', () {
         final customConfig = config.copyWith(
-          retryDelayStrategy: (retryCount) =>
+          retryDelayStrategy: (final retryCount) =>
               Duration(seconds: retryCount * 10),
           retryJitter: false, // Disable jitter for deterministic test
         );
@@ -159,7 +151,7 @@ void main() {
 
       test('caps delay at maximum allowed', () {
         final customConfig = config.copyWith(
-          retryDelayStrategy: (retryCount) =>
+          retryDelayStrategy: (final retryCount) =>
               Duration(seconds: retryCount * 100), // Strategy that exceeds max
           retryJitter: false, // Disable jitter for deterministic test
         );
@@ -224,8 +216,11 @@ void main() {
           createdAt: DateTime.now(),
         );
 
-        final exception =
-            RequestExecutionException('test', 'execution failed', 500);
+        const exception = RequestExecutionException(
+          'test',
+          'execution failed',
+          500,
+        );
         final retryRequest = retryManager.prepareForRetry(request, exception);
 
         expect(retryRequest.failureReason, contains('500'));
@@ -241,7 +236,6 @@ void main() {
           url: 'https://example.com',
           createdAt: now,
           retryCount: 2,
-          maxRetries: 3,
           lastRetryTime: now.subtract(const Duration(minutes: 5)),
           failureReason: 'timeout',
           lastFailureStatusCode: 408,
@@ -281,7 +275,6 @@ void main() {
           url: 'https://example.com',
           createdAt: DateTime.now(),
           retryCount: 3,
-          maxRetries: 3,
         );
 
         final result = retryManager.shouldMoveToDeadLetter(request);
@@ -300,20 +293,21 @@ void main() {
         expect(result, isTrue);
       });
 
-      test('returns false when request can still be retried and is not too old',
-          () {
-        final request = NetworkRequest(
-          id: 'test',
-          method: 'GET',
-          url: 'https://example.com',
-          createdAt: DateTime.now(),
-          retryCount: 1,
-          maxRetries: 3,
-        );
+      test(
+        'returns false when request can still be retried and is not too old',
+        () {
+          final request = NetworkRequest(
+            id: 'test',
+            method: 'GET',
+            url: 'https://example.com',
+            createdAt: DateTime.now(),
+            retryCount: 1,
+          );
 
-        final result = retryManager.shouldMoveToDeadLetter(request);
-        expect(result, isFalse);
-      });
+          final result = retryManager.shouldMoveToDeadLetter(request);
+          expect(result, isFalse);
+        },
+      );
     });
 
     group('error classification', () {
@@ -341,7 +335,9 @@ void main() {
         expect(retryManager.shouldRetry(request, 'timeout error'), isTrue);
         expect(retryManager.shouldRetry(request, 'connection failed'), isTrue);
         expect(
-            retryManager.shouldRetry(request, 'network unavailable'), isTrue);
+          retryManager.shouldRetry(request, 'network unavailable'),
+          isTrue,
+        );
       });
     });
   });

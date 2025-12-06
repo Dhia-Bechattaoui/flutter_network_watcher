@@ -1,7 +1,7 @@
+import 'package:flutter_network_watcher/src/dead_letter_queue.dart';
 import 'package:flutter_network_watcher/src/exceptions/network_exceptions.dart';
 import 'package:flutter_network_watcher/src/models/network_request.dart';
 import 'package:flutter_network_watcher/src/models/network_watcher_config.dart';
-import 'package:flutter_network_watcher/src/dead_letter_queue.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,7 +20,6 @@ void main() {
         maxDeadLetterQueueSize: 5,
         persistQueue: false, // Disable persistence for most tests
         maxRequestAge: Duration(hours: 1),
-        enableLogging: false,
         deadLetterQueueEnabled: true,
       );
 
@@ -64,7 +63,7 @@ void main() {
 
       test('removes oldest request when queue is full', () async {
         // Fill the queue to capacity
-        for (int i = 0; i < config.maxDeadLetterQueueSize; i++) {
+        for (var i = 0; i < config.maxDeadLetterQueueSize; i++) {
           await queue.enqueue(_createTestRequest('request_$i'));
         }
 
@@ -78,10 +77,14 @@ void main() {
       });
 
       test('updates existing request if ID already exists', () async {
-        final request1 =
-            _createTestRequest('duplicate', failureReason: 'old reason');
-        final request2 =
-            _createTestRequest('duplicate', failureReason: 'new reason');
+        final request1 = _createTestRequest(
+          'duplicate',
+          failureReason: 'old reason',
+        );
+        final request2 = _createTestRequest(
+          'duplicate',
+          failureReason: 'new reason',
+        );
 
         await queue.enqueue(request1);
         await queue.enqueue(request2);
@@ -92,12 +95,18 @@ void main() {
       });
 
       test('maintains creation time order (oldest first)', () async {
-        final old = _createTestRequest('old',
-            createdAt: DateTime(2024, 1, 1, 12, 0, 0));
-        final new1 = _createTestRequest('new1',
-            createdAt: DateTime(2024, 1, 1, 12, 0, 10));
-        final new2 = _createTestRequest('new2',
-            createdAt: DateTime(2024, 1, 1, 12, 0, 20));
+        final old = _createTestRequest(
+          'old',
+          createdAt: DateTime(2024, 1, 1, 12),
+        );
+        final new1 = _createTestRequest(
+          'new1',
+          createdAt: DateTime(2024, 1, 1, 12, 0, 10),
+        );
+        final new2 = _createTestRequest(
+          'new2',
+          createdAt: DateTime(2024, 1, 1, 12, 0, 20),
+        );
 
         await queue.enqueue(new2);
         await queue.enqueue(old);
@@ -161,8 +170,10 @@ void main() {
 
       test('getRequestsByFailureReason filters correctly', () async {
         final request1 = _createTestRequest('req1', failureReason: 'timeout');
-        final request2 =
-            _createTestRequest('req2', failureReason: 'server_error');
+        final request2 = _createTestRequest(
+          'req2',
+          failureReason: 'server_error',
+        );
         final request3 = _createTestRequest('req3', failureReason: 'timeout');
 
         await queue.enqueue(request1);
@@ -172,10 +183,13 @@ void main() {
         final timeoutRequests = queue.getRequestsByFailureReason('timeout');
         expect(timeoutRequests.length, equals(2));
         expect(
-            timeoutRequests.every((r) => r.failureReason == 'timeout'), isTrue);
+          timeoutRequests.every((final r) => r.failureReason == 'timeout'),
+          isTrue,
+        );
 
-        final serverErrorRequests =
-            queue.getRequestsByFailureReason('server_error');
+        final serverErrorRequests = queue.getRequestsByFailureReason(
+          'server_error',
+        );
         expect(serverErrorRequests.length, equals(1));
         expect(serverErrorRequests.first.id, equals('req2'));
       });
@@ -191,8 +205,10 @@ void main() {
 
         final status500Requests = queue.getRequestsByStatusCode(500);
         expect(status500Requests.length, equals(2));
-        expect(status500Requests.every((r) => r.lastFailureStatusCode == 500),
-            isTrue);
+        expect(
+          status500Requests.every((final r) => r.lastFailureStatusCode == 500),
+          isTrue,
+        );
 
         final status429Requests = queue.getRequestsByStatusCode(429);
         expect(status429Requests.length, equals(1));
@@ -201,16 +217,21 @@ void main() {
 
       test('getRequestsOlderThan filters correctly', () async {
         final now = DateTime.now();
-        final old = _createTestRequest('old',
-            createdAt: now.subtract(const Duration(hours: 2)));
-        final recent = _createTestRequest('recent',
-            createdAt: now.subtract(const Duration(minutes: 30)));
+        final old = _createTestRequest(
+          'old',
+          createdAt: now.subtract(const Duration(hours: 2)),
+        );
+        final recent = _createTestRequest(
+          'recent',
+          createdAt: now.subtract(const Duration(minutes: 30)),
+        );
 
         await queue.enqueue(old);
         await queue.enqueue(recent);
 
-        final oldRequests =
-            queue.getRequestsOlderThan(const Duration(hours: 1));
+        final oldRequests = queue.getRequestsOlderThan(
+          const Duration(hours: 1),
+        );
         expect(oldRequests.length, equals(1));
         expect(oldRequests.first.id, equals('old'));
       });
@@ -246,10 +267,14 @@ void main() {
 
       test('removes old requests', () async {
         final now = DateTime.now();
-        final old = _createTestRequest('old',
-            createdAt: now.subtract(const Duration(hours: 2)));
-        final recent = _createTestRequest('recent',
-            createdAt: now.subtract(const Duration(minutes: 30)));
+        final old = _createTestRequest(
+          'old',
+          createdAt: now.subtract(const Duration(hours: 2)),
+        );
+        final recent = _createTestRequest(
+          'recent',
+          createdAt: now.subtract(const Duration(minutes: 30)),
+        );
 
         await queue.enqueue(old);
         await queue.enqueue(recent);
@@ -291,21 +316,25 @@ void main() {
 
       test('returns correct statistics for populated queue', () async {
         final now = DateTime.now();
-        final old = _createTestRequest('old',
-            failureReason: 'timeout',
-            statusCode: 408,
-            method: 'GET',
-            createdAt: now.subtract(const Duration(minutes: 10)));
-        final new1 = _createTestRequest('new1',
-            failureReason: 'server_error',
-            statusCode: 500,
-            method: 'POST',
-            createdAt: now.subtract(const Duration(minutes: 2)));
-        final new2 = _createTestRequest('new2',
-            failureReason: 'timeout',
-            statusCode: 408,
-            method: 'GET',
-            createdAt: now.subtract(const Duration(minutes: 1)));
+        final old = _createTestRequest(
+          'old',
+          failureReason: 'timeout',
+          statusCode: 408,
+          createdAt: now.subtract(const Duration(minutes: 10)),
+        );
+        final new1 = _createTestRequest(
+          'new1',
+          failureReason: 'server_error',
+          statusCode: 500,
+          method: 'POST',
+          createdAt: now.subtract(const Duration(minutes: 2)),
+        );
+        final new2 = _createTestRequest(
+          'new2',
+          failureReason: 'timeout',
+          statusCode: 408,
+          createdAt: now.subtract(const Duration(minutes: 1)),
+        );
 
         await queue.enqueue(old);
         await queue.enqueue(new1);
@@ -315,8 +344,10 @@ void main() {
 
         expect(stats['totalRequests'], equals(3));
         expect(stats['utilizationPercent'], equals(60)); // 3/5 * 100
-        expect(stats['failureReasonGroups'],
-            equals({'timeout': 2, 'server_error': 1}));
+        expect(
+          stats['failureReasonGroups'],
+          equals({'timeout': 2, 'server_error': 1}),
+        );
         expect(stats['statusCodeGroups'], equals({408: 2, 500: 1}));
         expect(stats['methodGroups'], equals({'GET': 2, 'POST': 1}));
         expect(stats['averageAgeHours'], isA<double>());
@@ -336,10 +367,12 @@ void main() {
 
         expect(exported['exportedAt'], isA<String>());
         expect(exported['queueSize'], equals(1));
-        expect(exported['requests'], isA<List>());
-        expect(exported['statistics'], isA<Map>());
-        expect(exported['requests'].length, equals(1));
-        expect(exported['requests'][0]['id'], equals('export_me'));
+        expect(exported['requests'], isA<List<dynamic>>());
+        expect(exported['statistics'], isA<Map<dynamic, dynamic>>());
+        final requests = exported['requests'] as List<dynamic>;
+        expect(requests.length, equals(1));
+        final firstRequest = requests[0] as Map<String, dynamic>;
+        expect(firstRequest['id'], equals('export_me'));
       });
     });
 
@@ -347,13 +380,16 @@ void main() {
       test('loads persisted queue on initialization', () async {
         // Set up initial data in SharedPreferences with recent dates
         final now = DateTime.now();
-        final recentDate1 =
-            now.subtract(const Duration(minutes: 30)).toIso8601String();
-        final recentDate2 =
-            now.subtract(const Duration(minutes: 20)).toIso8601String();
+        final recentDate1 = now
+            .subtract(const Duration(minutes: 30))
+            .toIso8601String();
+        final recentDate2 = now
+            .subtract(const Duration(minutes: 20))
+            .toIso8601String();
 
         SharedPreferences.setMockInitialValues({
-          'flutter_network_watcher_dead_letter_queue': '''
+          'flutter_network_watcher_dead_letter_queue':
+              '''
 [
             {
               "id": "persisted_1",
@@ -379,7 +415,7 @@ void main() {
               "failureReason": "server_error",
               "lastFailureStatusCode": 500
             }
-          ]'''
+          ]''',
         });
 
         final persistentConfig = config.copyWith(persistQueue: true);
@@ -400,8 +436,9 @@ void main() {
       });
 
       test('handles corrupted persistence data gracefully', () async {
-        SharedPreferences.setMockInitialValues(
-            {'flutter_network_watcher_dead_letter_queue': 'invalid json'});
+        SharedPreferences.setMockInitialValues({
+          'flutter_network_watcher_dead_letter_queue': 'invalid json',
+        });
 
         final persistentConfig = config.copyWith(persistQueue: true);
         final persistentQueue = DeadLetterQueue(config: persistentConfig);
@@ -418,23 +455,21 @@ void main() {
 }
 
 NetworkRequest _createTestRequest(
-  String id, {
-  String method = 'GET',
-  String url = 'https://example.com',
-  int priority = 0,
-  int retryCount = 0,
-  DateTime? createdAt,
-  String? failureReason,
-  int? statusCode,
-}) {
-  return NetworkRequest(
-    id: id,
-    method: method,
-    url: url,
-    createdAt: createdAt ?? DateTime.now(),
-    priority: priority,
-    retryCount: retryCount,
-    failureReason: failureReason,
-    lastFailureStatusCode: statusCode,
-  );
-}
+  final String id, {
+  final String method = 'GET',
+  final String url = 'https://example.com',
+  final int priority = 0,
+  final int retryCount = 0,
+  final DateTime? createdAt,
+  final String? failureReason,
+  final int? statusCode,
+}) => NetworkRequest(
+  id: id,
+  method: method,
+  url: url,
+  createdAt: createdAt ?? DateTime.now(),
+  priority: priority,
+  retryCount: retryCount,
+  failureReason: failureReason,
+  lastFailureStatusCode: statusCode,
+);

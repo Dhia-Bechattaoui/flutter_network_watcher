@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:rxdart/rxdart.dart';
 
 import '../dead_letter_queue.dart';
+import '../exceptions/network_exceptions.dart';
 import '../models/connectivity_state.dart';
 import '../models/network_request.dart';
 import '../models/network_watcher_config.dart';
@@ -12,6 +15,23 @@ import 'network_watcher_base.dart';
 
 /// Web platform implementation of NetworkWatcher
 class NetworkWatcherPlatform extends NetworkWatcherBase {
+  NetworkWatcherPlatform({this.config = NetworkWatcherConfig.defaultConfig}) {
+    _connectivitySubject = BehaviorSubject.seeded(ConnectivityState.unknown);
+    _onlineSubject = BehaviorSubject.seeded(false);
+
+    _retryManager = RetryManager(config: config);
+    _offlineQueue = OfflineQueue(config: config);
+
+    if (config.deadLetterQueueEnabled) {
+      _deadLetterQueue = DeadLetterQueue(config: config);
+    }
+
+    // Listen to online/offline events using periodic connectivity checks
+    _onlineSubscription = _createOnlineStream().listen(_handleOnlineChange);
+
+    // Check initial connectivity immediately
+    unawaited(_checkInternetConnectivity().then(_handleOnlineChange));
+  }
   @override
   final NetworkWatcherConfig config;
 
@@ -26,40 +46,15 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   bool _isActive = false;
   Timer? _queueProcessingTimer;
 
-  NetworkWatcherPlatform({required this.config}) {
-    _connectivitySubject = BehaviorSubject.seeded(ConnectivityState.unknown);
-    _onlineSubject = BehaviorSubject.seeded(false);
-
-    _retryManager = RetryManager(config: config);
-    _offlineQueue = OfflineQueue(config: config);
-
-    if (config.deadLetterQueueEnabled) {
-      _deadLetterQueue = DeadLetterQueue(config: config);
-    }
-
-    // Listen to online/offline events using web-native APIs
-    _onlineSubscription = _createOnlineStream().listen(_handleOnlineChange);
-  }
-
-  /// Creates a stream that monitors online/offline status using web-native APIs
-  Stream<bool> _createOnlineStream() {
-    return Stream.periodic(const Duration(seconds: 5), (_) {
-      return _checkOnlineStatus();
-    }).startWith(_checkOnlineStatus());
-  }
-
-  /// Checks online status using web-native APIs
-  bool _checkOnlineStatus() {
-    try {
-      // Use web-native navigator.onLine
-      return true; // Default to true for web compatibility
-    } catch (e) {
-      return true; // Default to true if web APIs are not available
-    }
-  }
+  /// Creates a stream that monitors online/offline status
+  /// Uses periodic internet connectivity checks
+  Stream<bool> _createOnlineStream() => Stream.periodic(
+    const Duration(seconds: 3),
+    (_) async => _checkInternetConnectivity(),
+  ).asyncMap((final future) => future);
 
   /// Handles online/offline status changes
-  void _handleOnlineChange(bool isOnline) {
+  void _handleOnlineChange(final bool isOnline) {
     _onlineSubject.add(isOnline);
 
     if (isOnline) {
@@ -102,7 +97,9 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
 
   @override
   Future<void> start() async {
-    if (_isActive) return;
+    if (_isActive) {
+      return;
+    }
 
     _isActive = true;
 
@@ -123,7 +120,9 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
 
   @override
   Future<void> stop() async {
-    if (!_isActive) return;
+    if (!_isActive) {
+      return;
+    }
 
     _isActive = false;
 
@@ -134,7 +133,7 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   @override
-  Future<void> queueRequest(NetworkRequest request) async {
+  Future<void> queueRequest(final NetworkRequest request) async {
     if (!_isActive) {
       throw StateError('Network watcher is not active');
     }
@@ -149,9 +148,8 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   @override
-  Future<bool> removeRequest(String requestId) async {
-    return await _offlineQueue.remove(requestId);
-  }
+  Future<bool> removeRequest(final String requestId) async =>
+      _offlineQueue.remove(requestId);
 
   @override
   Future<void> clearQueue() async {
@@ -162,31 +160,69 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   @override
   Future<void> checkConnectivity() async {
     try {
-      // Use web-native connectivity check
-      final isOnline = _checkOnlineStatus();
-      _handleOnlineChange(isOnline);
-    } catch (e) {
-      _log('Error checking connectivity: $e');
+      _log('[NetworkWatcherPlatform] Checking connectivity...');
+
+      // Check actual internet connectivity with HTTP request
+      final hasInternet = await _checkInternetConnectivity();
+
+      _log('[NetworkWatcherPlatform] Internet connectivity: $hasInternet');
+
+      if (!hasInternet) {
+        _log('[NetworkWatcherPlatform] No internet - setting offline');
+        _connectivitySubject.add(ConnectivityState.none);
+        _onlineSubject.add(false);
+      } else {
+        _log('[NetworkWatcherPlatform] Internet available - setting online');
+        _connectivitySubject.add(ConnectivityState.wifi);
+        _onlineSubject.add(true);
+      }
+    } on Exception catch (e) {
+      _log('[NetworkWatcherPlatform] Error checking connectivity: $e');
       _connectivitySubject.add(ConnectivityState.unknown);
       _onlineSubject.add(false);
     }
   }
 
+  /// Performs an actual internet connectivity test for web
+  Future<bool> _checkInternetConnectivity() async {
+    try {
+      _log('[NetworkWatcherPlatform] Testing internet connectivity...');
+      // Use HTTP HEAD request to check connectivity (faster than GET)
+      final response = await http
+          .head(Uri.parse('https://www.google.com/favicon.ico'))
+          .timeout(const Duration(seconds: 2));
+
+      final hasInternet = response.statusCode < 500;
+      _log(
+        '[NetworkWatcherPlatform] Internet test result: $hasInternet '
+        '(status: ${response.statusCode})',
+      );
+      return hasInternet;
+    } on Exception catch (e) {
+      _log('[NetworkWatcherPlatform] Internet connectivity test failed: $e');
+      return false;
+    }
+  }
+
   @override
   Future<void> processQueue() async {
-    if (!_isActive || isOffline) return;
+    if (!_isActive || isOffline) {
+      return;
+    }
 
     _log('Processing offline queue (${_offlineQueue.size} requests)');
 
     final requestsToProcess = _offlineQueue.getRequestsReadyForRetry();
-    if (requestsToProcess.isEmpty) return;
+    if (requestsToProcess.isEmpty) {
+      return;
+    }
 
     for (final request in requestsToProcess) {
       try {
         await _executeRequest(request);
         await _offlineQueue.remove(request.id);
         _log('Request ${request.id} executed successfully');
-      } catch (e) {
+      } on Exception catch (e) {
         _log('Request ${request.id} failed: $e');
         await _handleFailedRequest(request, e);
       }
@@ -197,31 +233,28 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
   }
 
   @override
-  Map<String, dynamic> getRetryStats(String requestId) {
+  Map<String, dynamic> getRetryStats(final String requestId) {
     final request = _offlineQueue.getRequest(requestId);
-    if (request == null) return {};
+    if (request == null) {
+      return {};
+    }
     return _retryManager.getRetryStats(request);
   }
 
   @override
-  List<NetworkRequest> getRequestsReadyForRetry() {
-    return _offlineQueue.getRequestsReadyForRetry();
-  }
+  List<NetworkRequest> getRequestsReadyForRetry() =>
+      _offlineQueue.getRequestsReadyForRetry();
 
   @override
   Map<String, dynamic> getQueueStatistics() {
     final baseStats = _offlineQueue.getStatistics();
     final dlqStats = _deadLetterQueue?.getStatistics() ?? {};
 
-    return {
-      ...baseStats,
-      'deadLetterQueueStats': dlqStats,
-      'platform': 'web',
-    };
+    return {...baseStats, 'deadLetterQueueStats': dlqStats, 'platform': 'web'};
   }
 
   @override
-  void updateConnectivityState(ConnectivityState state) {
+  void updateConnectivityState(final ConnectivityState state) {
     _connectivitySubject.add(state);
   }
 
@@ -230,59 +263,119 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
     await stop();
     await _offlineQueue.dispose();
     await _deadLetterQueue?.dispose();
-    _onlineSubscription.cancel();
-    _connectivitySubject.close();
-    _onlineSubject.close();
+    unawaited(_onlineSubscription.cancel());
+    unawaited(_connectivitySubject.close());
+    unawaited(_onlineSubject.close());
   }
 
   void _startQueueProcessingTimer() {
     _queueProcessingTimer?.cancel();
-    _queueProcessingTimer = Timer.periodic(
-      config.checkInterval,
-      (_) {
-        if (_isActive && isOnline) {
-          processQueue();
-        }
-      },
-    );
+    _queueProcessingTimer = Timer.periodic(config.checkInterval, (_) {
+      if (_isActive && isOnline) {
+        unawaited(processQueue());
+      }
+    });
   }
 
-  Future<void> _executeRequest(NetworkRequest request) async {
-    // Simulate network request execution for web
-    // In a real implementation, this would make actual HTTP requests
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+  Future<void> _executeRequest(final NetworkRequest request) async {
+    _log('Executing request: ${request.method} ${request.url}');
 
-    // Simulate different failure scenarios for testing
-    if (request.url.contains('timeout')) {
-      throw TimeoutException('Request timeout', Duration(seconds: 5));
-    } else if (request.url.contains('error')) {
-      throw Exception('Simulated error');
-    } else if (request.url.contains('network')) {
-      throw Exception('Network error');
+    try {
+      http.Response response;
+
+      // Create URI from request URL
+      final uri = Uri.parse(request.url);
+
+      // Prepare headers
+      final headers = <String, String>{...request.headers};
+
+      // Use a reasonable timeout (30 seconds) for individual requests
+      const requestTimeout = Duration(seconds: 30);
+
+      // Execute the request based on method
+      switch (request.method.toUpperCase()) {
+        case 'GET':
+          response = await http
+              .get(uri, headers: headers)
+              .timeout(requestTimeout);
+        case 'POST':
+          response = await http
+              .post(uri, headers: headers, body: request.body)
+              .timeout(requestTimeout);
+        case 'PUT':
+          response = await http
+              .put(uri, headers: headers, body: request.body)
+              .timeout(requestTimeout);
+        case 'PATCH':
+          response = await http
+              .patch(uri, headers: headers, body: request.body)
+              .timeout(requestTimeout);
+        case 'DELETE':
+          response = await http
+              .delete(uri, headers: headers)
+              .timeout(requestTimeout);
+        default:
+          throw RequestExecutionException(
+            request.id,
+            'Unsupported HTTP method: ${request.method}',
+          );
+      }
+
+      // Check if response indicates an error
+      if (response.statusCode >= 400) {
+        throw RequestExecutionException(
+          request.id,
+          'HTTP ${response.statusCode}: '
+          '${response.reasonPhrase ?? "Request failed"}',
+          response.statusCode,
+        );
+      }
+
+      _log(
+        'Request ${request.id} executed successfully: HTTP '
+        '${response.statusCode}',
+      );
+    } on TimeoutException catch (e) {
+      throw RequestExecutionException(
+        request.id,
+        'Request timeout: ${e.message}',
+      );
+    } on FormatException catch (e) {
+      throw RequestExecutionException(
+        request.id,
+        'Invalid URL format: ${e.message}',
+      );
+    } on RequestExecutionException {
+      // Re-throw RequestExecutionException as-is
+      rethrow;
+    } catch (e) {
+      throw RequestExecutionException(request.id, 'Unexpected error: $e');
     }
-
-    // Success case
-    _log('Request ${request.id} executed successfully');
   }
 
   Future<void> _handleFailedRequest(
-      NetworkRequest request, Object error) async {
+    final NetworkRequest request,
+    final Object error,
+  ) async {
     if (_retryManager.shouldRetry(request, error)) {
       final updatedRequest = _retryManager.prepareForRetry(request, error);
       await _offlineQueue.update(updatedRequest);
       _log(
-          'Request ${request.id} prepared for retry (attempt ${updatedRequest.retryCount})');
+        'Request ${request.id} prepared for retry (attempt '
+        '${updatedRequest.retryCount})',
+      );
     } else if (_deadLetterQueue != null) {
       final retryStats = _retryManager.getRetryStats(request);
       final failureReason = retryStats['failureReason'] as String?;
       final failedRequest = request.withFailureInfo(
         failureReason: failureReason,
-        statusCode: null,
       );
       await _deadLetterQueue!.enqueue(failedRequest);
       await _offlineQueue.remove(request.id);
       _log(
-          'Request ${request.id} moved to dead letter queue after ${request.retryCount} retries');
+        'Request ${request.id} moved to dead letter queue after '
+        '${request.retryCount} retries',
+      );
     } else {
       await _offlineQueue.remove(request.id);
       _log('Request ${request.id} removed after max retries exceeded');
@@ -293,26 +386,15 @@ class NetworkWatcherPlatform extends NetworkWatcherBase {
     final requests = _offlineQueue.getAllRequests();
     for (final request in requests) {
       if (!request.canRetry) {
-        _offlineQueue.remove(request.id);
+        unawaited(_offlineQueue.remove(request.id));
         _log('Expired request ${request.id} removed');
       }
     }
   }
 
-  void _log(String message) {
-    if (config.enableLogging) {
-      print('[NetworkWatcherPlatform] $message');
+  void _log(final String message) {
+    if (config.enableLogging && kDebugMode) {
+      debugPrint('[NetworkWatcherPlatform] $message');
     }
   }
-}
-
-/// Custom exception for web platform
-class TimeoutException implements Exception {
-  final String message;
-  final Duration timeout;
-
-  TimeoutException(this.message, this.timeout);
-
-  @override
-  String toString() => 'TimeoutException: $message (timeout: $timeout)';
 }

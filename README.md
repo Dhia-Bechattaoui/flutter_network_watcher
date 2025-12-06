@@ -6,6 +6,8 @@
 
 A comprehensive Flutter package for monitoring network connectivity and managing offline requests with advanced retry logic and queue management.
 
+<img src="assets/example.gif" width="300" alt="Example demonstration">
+
 ## Features
 
 - **Network Connectivity Monitoring**: Real-time monitoring of network status changes
@@ -336,11 +338,11 @@ try {
 ## Platform Support
 
 - ✅ **Android**: Full support with native connectivity monitoring
-- ✅ **iOS**: Full support with native connectivity monitoring (CocoaPods + Swift Package Manager)
-- ✅ **Web**: Full support with WASM compatibility
-- ✅ **Windows**: Full support with native connectivity monitoring (C++ implementation)
-- ✅ **macOS**: Full support with native connectivity monitoring (Swift implementation + SPM)
-- ✅ **Linux**: Full support with native connectivity monitoring (C++ implementation)
+- ✅ **iOS**: Full support with native connectivity monitoring
+- ✅ **Web**: Basic support (limited connectivity detection)
+- ✅ **Windows**: Full support with native connectivity monitoring
+- ✅ **macOS**: Full support with native connectivity monitoring
+- ✅ **Linux**: Full support with native connectivity monitoring
 
 ## Example
 

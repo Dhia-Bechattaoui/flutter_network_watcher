@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_network_watcher/flutter_network_watcher.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -8,15 +8,16 @@ void main() {
     test('exports all necessary classes', () {
       // Test that all exported classes can be instantiated
       expect(NetworkWatcher, isA<Type>());
-      expect(() => const NetworkWatcherConfig(), returnsNormally);
+      expect(() => NetworkWatcherConfig.defaultConfig, returnsNormally);
       expect(
-          () => NetworkRequest(
-                id: 'test',
-                method: 'GET',
-                url: 'https://example.com',
-                createdAt: DateTime.now(),
-              ),
-          returnsNormally);
+        () => NetworkRequest(
+          id: 'test',
+          method: 'GET',
+          url: 'https://example.com',
+          createdAt: DateTime.now(),
+        ),
+        returnsNormally,
+      );
 
       // Test enums
       expect(ConnectivityState.values, isNotEmpty);
@@ -26,8 +27,10 @@ void main() {
       // Test exceptions
       expect(() => const QueueFullException(100), returnsNormally);
       expect(() => const QueueException('test'), returnsNormally);
-      expect(() => const RequestExecutionException('id', 'message'),
-          returnsNormally);
+      expect(
+        () => const RequestExecutionException('id', 'message'),
+        returnsNormally,
+      );
       expect(() => const ConnectivityException('test'), returnsNormally);
       expect(() => const PersistenceException('test'), returnsNormally);
     });

@@ -1,13 +1,20 @@
+import 'dead_letter_queue.dart';
 import 'models/connectivity_state.dart';
 import 'models/network_request.dart';
 import 'models/network_watcher_config.dart';
-
 import 'platform/network_watcher_base.dart';
-import 'platform/network_watcher_web.dart';
-import 'dead_letter_queue.dart';
+import 'platform/network_watcher_stub.dart'
+    if (dart.library.io) 'platform/network_watcher_io.dart'
+    if (dart.library.html) 'platform/network_watcher_web.dart';
 
 /// Main class for monitoring network connectivity and managing offline requests
 class NetworkWatcher {
+  /// Creates a new NetworkWatcher instance
+  NetworkWatcher({this.config = NetworkWatcherConfig.defaultConfig}) {
+    // Create the appropriate platform implementation
+    _platform = _createPlatformImplementation();
+  }
+
   /// Platform-specific implementation
   late final NetworkWatcherBase _platform;
 
@@ -17,20 +24,14 @@ class NetworkWatcher {
   /// For testing: expose active state
   bool get isActive => _platform.isActive;
 
-  /// Creates a new NetworkWatcher instance
-  NetworkWatcher({
-    this.config = NetworkWatcherConfig.defaultConfig,
-  }) {
-    // Create the appropriate platform implementation
-    _platform = _createPlatformImplementation();
-  }
-
-  /// Creates the appropriate platform implementation based on the current environment
-  NetworkWatcherBase _createPlatformImplementation() {
-    // For now, use web implementation by default to avoid platform conflicts
-    // This ensures WASM compatibility and cross-platform support
-    return NetworkWatcherPlatform(config: config);
-  }
+  /// Creates the appropriate platform implementation based on the current
+  /// environment
+  NetworkWatcherBase _createPlatformImplementation() =>
+      // Conditional imports will select the correct implementation:
+      // - network_watcher_io.dart for mobile/desktop (dart.library.io)
+      // - network_watcher_web.dart for web (dart.library.html)
+      // - network_watcher_stub.dart as fallback
+      NetworkWatcherPlatform(config: config);
 
   /// Stream of connectivity state changes
   Stream<ConnectivityState> get connectivityStream =>
@@ -65,11 +66,11 @@ class NetworkWatcher {
   Future<void> stop() async => _platform.stop();
 
   /// Queues a network request for execution when online
-  Future<void> queueRequest(NetworkRequest request) async =>
+  Future<void> queueRequest(final NetworkRequest request) async =>
       _platform.queueRequest(request);
 
   /// Removes a specific request from the queue
-  Future<bool> removeRequest(String requestId) async =>
+  Future<bool> removeRequest(final String requestId) async =>
       _platform.removeRequest(requestId);
 
   /// Clears all requests from the queue
@@ -82,14 +83,15 @@ class NetworkWatcher {
   Future<void> processQueue() async => _platform.processQueue();
 
   /// Gets retry statistics for a specific request
-  Map<String, dynamic> getRetryStats(String requestId) =>
+  Map<String, dynamic> getRetryStats(final String requestId) =>
       _platform.getRetryStats(requestId);
 
   /// Gets all requests that are ready for retry
   List<NetworkRequest> getRequestsReadyForRetry() =>
       _platform.getRequestsReadyForRetry();
 
-  /// Gets comprehensive queue statistics including retry and dead letter queue info
+  /// Gets comprehensive queue statistics including retry and dead letter queue
+  /// info
   Map<String, dynamic> getQueueStatistics() => _platform.getQueueStatistics();
 
   /// Gets access to the dead letter queue if enabled
@@ -99,6 +101,6 @@ class NetworkWatcher {
   Future<void> dispose() async => _platform.dispose();
 
   /// For testing: expose connectivity state update
-  void updateConnectivityState(ConnectivityState state) =>
+  void updateConnectivityState(final ConnectivityState state) =>
       _platform.updateConnectivityState(state);
 }

@@ -20,7 +20,6 @@ void main() {
         maxQueueSize: 5,
         persistQueue: false, // Disable persistence for most tests
         maxRequestAge: Duration(hours: 1),
-        enableLogging: false,
       );
 
       queue = OfflineQueue(config: config);
@@ -78,7 +77,7 @@ void main() {
 
       test('maintains creation time order for same priority', () async {
         final first = _createTestRequest('first',
-            priority: 5, createdAt: DateTime(2024, 1, 1, 12, 0, 0));
+            priority: 5, createdAt: DateTime(2024, 1, 1, 12));
         final second = _createTestRequest('second',
             priority: 5, createdAt: DateTime(2024, 1, 1, 12, 0, 10));
 
@@ -92,7 +91,7 @@ void main() {
 
       test('throws QueueFullException when queue is full', () async {
         // Fill the queue to capacity
-        for (int i = 0; i < config.maxQueueSize; i++) {
+        for (var i = 0; i < config.maxQueueSize; i++) {
           await queue.enqueue(_createTestRequest('request_$i'));
         }
 
@@ -345,8 +344,6 @@ void main() {
         final now = DateTime.now();
         final old = _createTestRequest('old',
             priority: 1,
-            method: 'GET',
-            retryCount: 0,
             createdAt: now.subtract(const Duration(minutes: 10)));
         final new1 = _createTestRequest('new1',
             priority: 1,
@@ -355,7 +352,6 @@ void main() {
             createdAt: now.subtract(const Duration(minutes: 2)));
         final new2 = _createTestRequest('new2',
             priority: 5,
-            method: 'GET',
             retryCount: 2,
             createdAt: now.subtract(const Duration(minutes: 1)));
 
@@ -445,14 +441,13 @@ void main() {
 }
 
 NetworkRequest _createTestRequest(
-  String id, {
-  String method = 'GET',
-  String url = 'https://example.com',
-  int priority = 0,
-  int retryCount = 0,
-  DateTime? createdAt,
-}) {
-  return NetworkRequest(
+  final String id, {
+  final String method = 'GET',
+  final String url = 'https://example.com',
+  final int priority = 0,
+  final int retryCount = 0,
+  final DateTime? createdAt,
+}) => NetworkRequest(
     id: id,
     method: method,
     url: url,
@@ -460,4 +455,3 @@ NetworkRequest _createTestRequest(
     priority: priority,
     retryCount: retryCount,
   );
-}

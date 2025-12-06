@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'exceptions/network_exceptions.dart';
 import 'models/network_request.dart';
 import 'models/network_watcher_config.dart';
-import 'exceptions/network_exceptions.dart';
 
 /// Manages a queue of failed requests that have exceeded retry limits
 class DeadLetterQueue {
+  /// Creates a new DeadLetterQueue instance
+  DeadLetterQueue({required this.config});
+
   /// Configuration for the dead letter queue
   final NetworkWatcherConfig config;
 
@@ -23,9 +26,6 @@ class DeadLetterQueue {
 
   /// Whether the queue has been initialized
   bool _initialized = false;
-
-  /// Creates a new DeadLetterQueue instance
-  DeadLetterQueue({required this.config});
 
   /// Number of requests in the dead letter queue
   int get size {
@@ -47,7 +47,9 @@ class DeadLetterQueue {
 
   /// Initializes the queue and loads persisted data
   Future<void> initialize() async {
-    if (_initialized) return;
+    if (_initialized) {
+      return;
+    }
 
     _log('Initializing dead letter queue');
 
@@ -64,7 +66,7 @@ class DeadLetterQueue {
   }
 
   /// Adds a failed request to the dead letter queue
-  Future<void> enqueue(NetworkRequest request) async {
+  Future<void> enqueue(final NetworkRequest request) async {
     _ensureInitialized();
 
     // Check if queue is full
@@ -75,9 +77,11 @@ class DeadLetterQueue {
     }
 
     // Check if request already exists
-    if (_queue.any((r) => r.id == request.id)) {
+    if (_queue.any((final r) => r.id == request.id)) {
       _log(
-          'Request with ID ${request.id} already exists in dead letter queue, updating');
+        'Request with ID ${request.id} already exists in dead letter '
+        'queue, updating',
+      );
       await remove(request.id);
     }
 
@@ -90,15 +94,19 @@ class DeadLetterQueue {
     }
 
     _log(
-        'Request added to dead letter queue: ${request.id} (queue size: ${_queue.length})');
+      'Request added to dead letter queue: ${request.id} '
+      '(queue size: ${_queue.length})',
+    );
   }
 
   /// Removes a request from the dead letter queue by ID
-  Future<bool> remove(String requestId) async {
+  Future<bool> remove(final String requestId) async {
     _ensureInitialized();
 
-    final index = _queue.indexWhere((r) => r.id == requestId);
-    if (index == -1) return false;
+    final index = _queue.indexWhere((final r) => r.id == requestId);
+    if (index == -1) {
+      return false;
+    }
 
     _queue.removeAt(index);
 
@@ -108,16 +116,18 @@ class DeadLetterQueue {
     }
 
     _log(
-        'Request removed from dead letter queue: $requestId (queue size: ${_queue.length})');
+      'Request removed from dead letter queue: $requestId '
+      '(queue size: ${_queue.length})',
+    );
     return true;
   }
 
   /// Gets a request by ID
-  NetworkRequest? getRequest(String requestId) {
+  NetworkRequest? getRequest(final String requestId) {
     _ensureInitialized();
     try {
-      return _queue.firstWhere((r) => r.id == requestId);
-    } on StateError {
+      return _queue.firstWhere((final r) => r.id == requestId);
+    } on Exception {
       return null;
     }
   }
@@ -129,35 +139,39 @@ class DeadLetterQueue {
   }
 
   /// Gets requests by failure reason
-  List<NetworkRequest> getRequestsByFailureReason(String failureReason) {
+  List<NetworkRequest> getRequestsByFailureReason(final String failureReason) {
     _ensureInitialized();
-    return _queue.where((r) => r.failureReason == failureReason).toList();
+    return _queue.where((final r) => r.failureReason == failureReason).toList();
   }
 
   /// Gets requests by HTTP status code
-  List<NetworkRequest> getRequestsByStatusCode(int statusCode) {
+  List<NetworkRequest> getRequestsByStatusCode(final int statusCode) {
     _ensureInitialized();
-    return _queue.where((r) => r.lastFailureStatusCode == statusCode).toList();
+    return _queue
+        .where((final r) => r.lastFailureStatusCode == statusCode)
+        .toList();
   }
 
   /// Gets requests by age (older than specified duration)
-  List<NetworkRequest> getRequestsOlderThan(Duration age) {
+  List<NetworkRequest> getRequestsOlderThan(final Duration age) {
     _ensureInitialized();
     final cutoff = DateTime.now().subtract(age);
-    return _queue.where((r) => r.createdAt.isBefore(cutoff)).toList();
+    return _queue.where((final r) => r.createdAt.isBefore(cutoff)).toList();
   }
 
   /// Attempts to retry a request from the dead letter queue
-  Future<bool> retryRequest(String requestId) async {
+  Future<bool> retryRequest(final String requestId) async {
     _ensureInitialized();
 
     final request = getRequest(requestId);
-    if (request == null) return false;
+    if (request == null) {
+      return false;
+    }
 
     // Remove from dead letter queue
     await remove(requestId);
 
-    _log('Request ${requestId} removed from dead letter queue for retry');
+    _log('Request $requestId removed from dead letter queue for retry');
     return true;
   }
 
@@ -229,8 +243,11 @@ class DeadLetterQueue {
       'newestRequest': newestRequest.toIso8601String(),
       'averageAgeHours': totalRequests > 0
           ? _queue.fold(
-                  0.0, (sum, r) => sum + now.difference(r.createdAt).inHours) /
-              totalRequests
+                  0,
+                  (final sum, final r) =>
+                      sum + now.difference(r.createdAt).inHours,
+                ) /
+                totalRequests
           : 0.0,
     };
   }
@@ -242,7 +259,7 @@ class DeadLetterQueue {
     return {
       'exportedAt': DateTime.now().toIso8601String(),
       'queueSize': _queue.length,
-      'requests': _queue.map((r) => r.toJson()).toList(),
+      'requests': _queue.map((final r) => r.toJson()).toList(),
       'statistics': getStatistics(),
     };
   }
@@ -258,10 +275,10 @@ class DeadLetterQueue {
   }
 
   /// Inserts a request in the correct position based on creation time
-  void _insertByCreationTime(NetworkRequest request) {
+  void _insertByCreationTime(final NetworkRequest request) {
     // Find the correct position to insert the request (oldest first)
-    int insertIndex = 0;
-    for (int i = 0; i < _queue.length; i++) {
+    var insertIndex = 0;
+    for (var i = 0; i < _queue.length; i++) {
       final existing = _queue[i];
       if (request.createdAt.isBefore(existing.createdAt)) {
         insertIndex = i;
@@ -281,11 +298,12 @@ class DeadLetterQueue {
         return;
       }
 
-      final List<dynamic> jsonList = jsonDecode(queueData) as List<dynamic>;
+      final jsonList = jsonDecode(queueData) as List<dynamic>;
       for (final jsonItem in jsonList) {
         try {
-          final request =
-              NetworkRequest.fromJson(jsonItem as Map<String, dynamic>);
+          final request = NetworkRequest.fromJson(
+            jsonItem as Map<String, dynamic>,
+          );
           _queue.add(request);
         } on FormatException catch (e) {
           _log('Failed to parse persisted dead letter request: $e');
@@ -293,7 +311,7 @@ class DeadLetterQueue {
       }
 
       // Sort the loaded queue by creation time
-      _queue.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      _queue.sort((final a, final b) => a.createdAt.compareTo(b.createdAt));
 
       _log('Loaded ${_queue.length} persisted dead letter requests');
     } on FormatException catch (e) {
@@ -310,7 +328,7 @@ class DeadLetterQueue {
     }
 
     try {
-      final jsonList = _queue.map((r) => r.toJson()).toList();
+      final jsonList = _queue.map((final r) => r.toJson()).toList();
       final queueData = jsonEncode(jsonList);
       await _prefs!.setString(_queueKey, queueData);
     } on FormatException catch (e) {
@@ -324,7 +342,7 @@ class DeadLetterQueue {
     final now = DateTime.now();
     final originalSize = _queue.length;
 
-    _queue.removeWhere((request) {
+    _queue.removeWhere((final request) {
       final age = now.difference(request.createdAt);
       return age > config.maxRequestAge;
     });
@@ -346,12 +364,13 @@ class DeadLetterQueue {
   void _ensureInitialized() {
     if (!_initialized) {
       throw const QueueException(
-          'Dead letter queue not initialized. Call initialize() first.');
+        'Dead letter queue not initialized. Call initialize() first.',
+      );
     }
   }
 
   /// Logs a message if logging is enabled
-  void _log(String message) {
+  void _log(final String message) {
     if (config.enableLogging && kDebugMode) {
       debugPrint('[DeadLetterQueue] $message');
     }

@@ -22,7 +22,6 @@ void main() {
           checkInterval: Duration(milliseconds: 100),
           maxQueueSize: 10,
           persistQueue: false,
-          enableLogging: false,
         ),
       );
     });
@@ -288,9 +287,9 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
 
         // Should only emit when online/offline status changes
-        expect(states.where((state) => state == true).length,
+        expect(states.where((final state) => state).length,
             lessThanOrEqualTo(2));
-        expect(states.where((state) => state == false).length,
+        expect(states.where((final state) => !state).length,
             lessThanOrEqualTo(2));
       });
     });
@@ -327,16 +326,14 @@ void main() {
 }
 
 NetworkRequest _createTestRequest(
-  String id, {
-  String method = 'GET',
-  String url = 'https://example.com',
-  int priority = 0,
-}) {
-  return NetworkRequest(
+  final String id, {
+  final String method = 'GET',
+  final String url = 'https://example.com',
+  final int priority = 0,
+}) => NetworkRequest(
     id: id,
     method: method,
     url: url,
     createdAt: DateTime.now(),
     priority: priority,
   );
-}

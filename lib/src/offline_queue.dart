@@ -3,15 +3,23 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dead_letter_queue.dart';
+import 'exceptions/network_exceptions.dart';
 import 'models/network_request.dart';
 import 'models/network_watcher_config.dart';
-import 'exceptions/network_exceptions.dart';
 import 'retry_manager.dart';
-import 'dead_letter_queue.dart';
 
 /// Manages a queue of network requests that are executed when the device
 /// comes back online
 class OfflineQueue {
+  /// Creates a new OfflineQueue instance
+  OfflineQueue({required this.config}) {
+    _retryManager = RetryManager(config: config);
+    if (config.deadLetterQueueEnabled) {
+      _deadLetterQueue = DeadLetterQueue(config: config);
+    }
+  }
+
   /// Configuration for the queue
   final NetworkWatcherConfig config;
 
@@ -33,14 +41,6 @@ class OfflineQueue {
   /// Dead letter queue for failed requests
   DeadLetterQueue? _deadLetterQueue;
 
-  /// Creates a new OfflineQueue instance
-  OfflineQueue({required this.config}) {
-    _retryManager = RetryManager(config: config);
-    if (config.deadLetterQueueEnabled) {
-      _deadLetterQueue = DeadLetterQueue(config: config);
-    }
-  }
-
   /// Number of requests in the queue
   int get size {
     _ensureInitialized();
@@ -61,13 +61,17 @@ class OfflineQueue {
 
   /// Number of requests in the dead letter queue
   int get deadLetterQueueSize {
-    if (_deadLetterQueue == null) return 0;
+    if (_deadLetterQueue == null) {
+      return 0;
+    }
     return _deadLetterQueue!.size;
   }
 
   /// Initializes the queue and loads persisted data
   Future<void> initialize() async {
-    if (_initialized) return;
+    if (_initialized) {
+      return;
+    }
 
     _log('Initializing offline queue');
 
@@ -89,7 +93,7 @@ class OfflineQueue {
   }
 
   /// Adds a request to the queue
-  Future<void> enqueue(NetworkRequest request) async {
+  Future<void> enqueue(final NetworkRequest request) async {
     _ensureInitialized();
 
     // Check if queue is full
@@ -98,9 +102,10 @@ class OfflineQueue {
     }
 
     // Check if request already exists
-    if (_queue.any((r) => r.id == request.id)) {
+    if (_queue.any((final r) => r.id == request.id)) {
       throw QueueException(
-          'Request with ID ${request.id} already exists in queue');
+        'Request with ID ${request.id} already exists in queue',
+      );
     }
 
     // Add request to queue (sorted by priority, then by creation time)
@@ -115,11 +120,13 @@ class OfflineQueue {
   }
 
   /// Removes a request from the queue by ID
-  Future<bool> remove(String requestId) async {
+  Future<bool> remove(final String requestId) async {
     _ensureInitialized();
 
-    final index = _queue.indexWhere((r) => r.id == requestId);
-    if (index == -1) return false;
+    final index = _queue.indexWhere((final r) => r.id == requestId);
+    if (index == -1) {
+      return false;
+    }
 
     _queue.removeAt(index);
 
@@ -133,11 +140,13 @@ class OfflineQueue {
   }
 
   /// Updates an existing request in the queue
-  Future<bool> update(NetworkRequest request) async {
+  Future<bool> update(final NetworkRequest request) async {
     _ensureInitialized();
 
-    final index = _queue.indexWhere((r) => r.id == request.id);
-    if (index == -1) return false;
+    final index = _queue.indexWhere((final r) => r.id == request.id);
+    if (index == -1) {
+      return false;
+    }
 
     _queue[index] = request;
 
@@ -154,11 +163,11 @@ class OfflineQueue {
   }
 
   /// Gets a request by ID
-  NetworkRequest? getRequest(String requestId) {
+  NetworkRequest? getRequest(final String requestId) {
     _ensureInitialized();
     try {
-      return _queue.firstWhere((r) => r.id == requestId);
-    } on StateError {
+      return _queue.firstWhere((final r) => r.id == requestId);
+    } on Exception {
       return null;
     }
   }
@@ -172,8 +181,8 @@ class OfflineQueue {
   /// Gets requests by priority (higher priority first)
   List<NetworkRequest> getRequestsByPriority() {
     _ensureInitialized();
-    final sorted = List<NetworkRequest>.from(_queue);
-    sorted.sort((a, b) => b.priority.compareTo(a.priority));
+    final sorted = List<NetworkRequest>.from(_queue)
+      ..sort((final a, final b) => b.priority.compareTo(a.priority));
     return sorted;
   }
 
@@ -225,9 +234,9 @@ class OfflineQueue {
 
   /// Handles a failed request with retry logic
   Future<void> handleFailedRequest(
-    NetworkRequest request,
-    Object error, [
-    int? statusCode,
+    final NetworkRequest request,
+    final Object error, [
+    final int? statusCode,
   ]) async {
     _ensureInitialized();
 
@@ -236,14 +245,18 @@ class OfflineQueue {
     // Check if request should be retried
     if (_retryManager.shouldRetry(request, error, statusCode)) {
       // Prepare request for retry
-      final retryRequest =
-          _retryManager.prepareForRetry(request, error, statusCode);
+      final retryRequest = _retryManager.prepareForRetry(
+        request,
+        error,
+        statusCode,
+      );
 
       // Update the request in the queue
       await update(retryRequest);
 
       _log(
-          'Request ${request.id} prepared for retry (attempt ${retryRequest.retryCount}/${retryRequest.maxRetries})');
+        'Request ${request.id} prepared for retry (attempt ${retryRequest.retryCount}/${retryRequest.maxRetries})',
+      );
     } else {
       // Request cannot be retried, move to dead letter queue if enabled
       if (_deadLetterQueue != null) {
@@ -258,18 +271,22 @@ class OfflineQueue {
         await remove(request.id);
 
         _log(
-            'Request ${request.id} moved to dead letter queue after ${request.retryCount} retries');
+          'Request ${request.id} moved to dead letter queue after '
+          '${request.retryCount} retries',
+        );
       } else {
         // Remove from main queue if dead letter queue is disabled
         await remove(request.id);
         _log(
-            'Request ${request.id} removed from queue after ${request.retryCount} retries');
+          'Request ${request.id} removed from queue after '
+          '${request.retryCount} retries',
+        );
       }
     }
   }
 
   /// Gets retry statistics for a specific request
-  Map<String, dynamic> getRetryStats(String requestId) {
+  Map<String, dynamic> getRetryStats(final String requestId) {
     _ensureInitialized();
 
     final request = getRequest(requestId);
@@ -285,8 +302,10 @@ class OfflineQueue {
     _ensureInitialized();
 
     final now = DateTime.now();
-    return _queue.where((request) {
-      if (!request.canRetry) return false;
+    return _queue.where((final request) {
+      if (!request.canRetry) {
+        return false;
+      }
 
       // Check if enough time has passed since last retry
       if (request.lastRetryTime != null) {
@@ -368,11 +387,12 @@ class OfflineQueue {
     _log('Offline queue disposed');
   }
 
-  /// Inserts a request in the correct position based on priority and creation time
-  void _insertByPriority(NetworkRequest request) {
+  /// Inserts a request in the correct position based on priority and creation
+  /// time
+  void _insertByPriority(final NetworkRequest request) {
     // Find the correct position to insert the request
-    int insertIndex = 0;
-    for (int i = 0; i < _queue.length; i++) {
+    var insertIndex = 0;
+    for (var i = 0; i < _queue.length; i++) {
       final existing = _queue[i];
 
       // Higher priority comes first
@@ -396,7 +416,7 @@ class OfflineQueue {
 
   /// Sorts the queue by priority and creation time
   void _sortQueue() {
-    _queue.sort((a, b) {
+    _queue.sort((final a, final b) {
       // Higher priority first
       final priorityComparison = b.priority.compareTo(a.priority);
       if (priorityComparison != 0) {
@@ -416,11 +436,12 @@ class OfflineQueue {
         return;
       }
 
-      final List<dynamic> jsonList = jsonDecode(queueData) as List<dynamic>;
+      final jsonList = jsonDecode(queueData) as List<dynamic>;
       for (final jsonItem in jsonList) {
         try {
-          final request =
-              NetworkRequest.fromJson(jsonItem as Map<String, dynamic>);
+          final request = NetworkRequest.fromJson(
+            jsonItem as Map<String, dynamic>,
+          );
           _queue.add(request);
         } on FormatException catch (e) {
           _log('Failed to parse persisted request: $e');
@@ -445,7 +466,7 @@ class OfflineQueue {
     }
 
     try {
-      final jsonList = _queue.map((r) => r.toJson()).toList();
+      final jsonList = _queue.map((final r) => r.toJson()).toList();
       final queueData = jsonEncode(jsonList);
       await _prefs!.setString(_queueKey, queueData);
     } on FormatException catch (e) {
@@ -459,7 +480,7 @@ class OfflineQueue {
     final now = DateTime.now();
     final originalSize = _queue.length;
 
-    _queue.removeWhere((request) {
+    _queue.removeWhere((final request) {
       final age = now.difference(request.createdAt);
       return age > config.maxRequestAge;
     });
@@ -481,12 +502,13 @@ class OfflineQueue {
   void _ensureInitialized() {
     if (!_initialized) {
       throw const QueueException(
-          'Queue not initialized. Call initialize() first.');
+        'Queue not initialized. Call initialize() first.',
+      );
     }
   }
 
   /// Logs a message if logging is enabled
-  void _log(String message) {
+  void _log(final String message) {
     if (config.enableLogging && kDebugMode) {
       debugPrint('[OfflineQueue] $message');
     }
