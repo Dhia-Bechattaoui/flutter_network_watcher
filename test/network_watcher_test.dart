@@ -32,8 +32,10 @@ void main() {
 
     group('initialization and lifecycle', () {
       test('initializes with unknown connectivity state', () {
-        expect(networkWatcher.currentConnectivityState,
-            equals(ConnectivityState.unknown));
+        expect(
+          networkWatcher.currentConnectivityState,
+          equals(ConnectivityState.unknown),
+        );
         expect(networkWatcher.isOnline, isFalse);
         expect(networkWatcher.isOffline, isTrue);
       });
@@ -111,7 +113,9 @@ void main() {
 
         // State should be set to something (even if unknown)
         expect(
-            networkWatcher.currentConnectivityState, isA<ConnectivityState>());
+          networkWatcher.currentConnectivityState,
+          isA<ConnectivityState>(),
+        );
       });
     });
 
@@ -176,8 +180,9 @@ void main() {
       test('does not process queue when offline', () async {
         networkWatcher.updateConnectivityState(ConnectivityState.none);
 
-        await networkWatcher
-            .queueRequest(_createTestRequest('offline_request'));
+        await networkWatcher.queueRequest(
+          _createTestRequest('offline_request'),
+        );
         await networkWatcher.processQueue();
 
         // Queue should still have the request
@@ -206,8 +211,10 @@ void main() {
         networkWatcher.updateConnectivityState(ConnectivityState.none);
 
         // Queue a request that will fail (contains 'fail' in URL)
-        final failingRequest = _createTestRequest('failing_request',
-            url: 'https://example.com/fail');
+        final failingRequest = _createTestRequest(
+          'failing_request',
+          url: 'https://example.com/fail',
+        );
         await networkWatcher.queueRequest(failingRequest);
 
         // Come back online
@@ -267,8 +274,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
 
         // Should only emit distinct values
-        expect(states.length,
-            lessThanOrEqualTo(3)); // initial unknown + wifi + mobile
+        expect(
+          states.length,
+          lessThanOrEqualTo(3),
+        ); // initial unknown + wifi + mobile
       });
 
       test('onlineStream emits distinct values', () async {
@@ -287,10 +296,14 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
 
         // Should only emit when online/offline status changes
-        expect(states.where((final state) => state).length,
-            lessThanOrEqualTo(2));
-        expect(states.where((final state) => !state).length,
-            lessThanOrEqualTo(2));
+        expect(
+          states.where((final state) => state).length,
+          lessThanOrEqualTo(2),
+        );
+        expect(
+          states.where((final state) => !state).length,
+          lessThanOrEqualTo(2),
+        );
       });
     });
 
@@ -331,9 +344,9 @@ NetworkRequest _createTestRequest(
   final String url = 'https://example.com',
   final int priority = 0,
 }) => NetworkRequest(
-    id: id,
-    method: method,
-    url: url,
-    createdAt: DateTime.now(),
-    priority: priority,
-  );
+  id: id,
+  method: method,
+  url: url,
+  createdAt: DateTime.now(),
+  priority: priority,
+);

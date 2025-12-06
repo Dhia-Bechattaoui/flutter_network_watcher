@@ -76,10 +76,16 @@ void main() {
       });
 
       test('maintains creation time order for same priority', () async {
-        final first = _createTestRequest('first',
-            priority: 5, createdAt: DateTime(2024, 1, 1, 12));
-        final second = _createTestRequest('second',
-            priority: 5, createdAt: DateTime(2024, 1, 1, 12, 0, 10));
+        final first = _createTestRequest(
+          'first',
+          priority: 5,
+          createdAt: DateTime(2024, 1, 1, 12),
+        );
+        final second = _createTestRequest(
+          'second',
+          priority: 5,
+          createdAt: DateTime(2024, 1, 1, 12, 0, 10),
+        );
 
         await queue.enqueue(second);
         await queue.enqueue(first);
@@ -107,10 +113,7 @@ void main() {
 
         await queue.enqueue(request);
 
-        expect(
-          () => queue.enqueue(request),
-          throwsA(isA<QueueException>()),
-        );
+        expect(() => queue.enqueue(request), throwsA(isA<QueueException>()));
       });
     });
 
@@ -296,10 +299,14 @@ void main() {
 
       test('removes expired requests', () async {
         final now = DateTime.now();
-        final expired = _createTestRequest('expired',
-            createdAt: now.subtract(const Duration(hours: 2)));
-        final recent = _createTestRequest('recent',
-            createdAt: now.subtract(const Duration(minutes: 30)));
+        final expired = _createTestRequest(
+          'expired',
+          createdAt: now.subtract(const Duration(hours: 2)),
+        );
+        final recent = _createTestRequest(
+          'recent',
+          createdAt: now.subtract(const Duration(minutes: 30)),
+        );
 
         await queue.enqueue(expired);
         await queue.enqueue(recent);
@@ -342,18 +349,24 @@ void main() {
 
       test('returns correct statistics for populated queue', () async {
         final now = DateTime.now();
-        final old = _createTestRequest('old',
-            priority: 1,
-            createdAt: now.subtract(const Duration(minutes: 10)));
-        final new1 = _createTestRequest('new1',
-            priority: 1,
-            method: 'POST',
-            retryCount: 1,
-            createdAt: now.subtract(const Duration(minutes: 2)));
-        final new2 = _createTestRequest('new2',
-            priority: 5,
-            retryCount: 2,
-            createdAt: now.subtract(const Duration(minutes: 1)));
+        final old = _createTestRequest(
+          'old',
+          priority: 1,
+          createdAt: now.subtract(const Duration(minutes: 10)),
+        );
+        final new1 = _createTestRequest(
+          'new1',
+          priority: 1,
+          method: 'POST',
+          retryCount: 1,
+          createdAt: now.subtract(const Duration(minutes: 2)),
+        );
+        final new2 = _createTestRequest(
+          'new2',
+          priority: 5,
+          retryCount: 2,
+          createdAt: now.subtract(const Duration(minutes: 1)),
+        );
 
         await queue.enqueue(old);
         await queue.enqueue(new1);
@@ -374,13 +387,16 @@ void main() {
       test('loads persisted queue on initialization', () async {
         // Set up initial data in SharedPreferences with recent dates
         final now = DateTime.now();
-        final recentDate1 =
-            now.subtract(const Duration(minutes: 30)).toIso8601String();
-        final recentDate2 =
-            now.subtract(const Duration(minutes: 20)).toIso8601String();
+        final recentDate1 = now
+            .subtract(const Duration(minutes: 30))
+            .toIso8601String();
+        final recentDate2 = now
+            .subtract(const Duration(minutes: 20))
+            .toIso8601String();
 
         SharedPreferences.setMockInitialValues({
-          'flutter_network_watcher_queue': '''
+          'flutter_network_watcher_queue':
+              '''
 [
             {
               "id": "persisted_1",
@@ -402,7 +418,7 @@ void main() {
               "maxRetries": 3,
               "priority": 5
             }
-          ]'''
+          ]''',
         });
 
         final persistentConfig = config.copyWith(persistQueue: true);
@@ -423,8 +439,9 @@ void main() {
       });
 
       test('handles corrupted persistence data gracefully', () async {
-        SharedPreferences.setMockInitialValues(
-            {'flutter_network_watcher_queue': 'invalid json'});
+        SharedPreferences.setMockInitialValues({
+          'flutter_network_watcher_queue': 'invalid json',
+        });
 
         final persistentConfig = config.copyWith(persistQueue: true);
         final persistentQueue = OfflineQueue(config: persistentConfig);
@@ -448,10 +465,10 @@ NetworkRequest _createTestRequest(
   final int retryCount = 0,
   final DateTime? createdAt,
 }) => NetworkRequest(
-    id: id,
-    method: method,
-    url: url,
-    createdAt: createdAt ?? DateTime.now(),
-    priority: priority,
-    retryCount: retryCount,
-  );
+  id: id,
+  method: method,
+  url: url,
+  createdAt: createdAt ?? DateTime.now(),
+  priority: priority,
+  retryCount: retryCount,
+);

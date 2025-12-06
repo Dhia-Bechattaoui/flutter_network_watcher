@@ -167,37 +167,37 @@ class _FeaturesDemoState extends State<FeaturesDemo>
   // ==================== CONNECTIVITY MONITORING TAB ====================
   Widget _buildConnectivityTab() {
     return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                      children: [
-                        Icon(
-                          _isOnline ? Icons.wifi : Icons.wifi_off,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Icon(
+                    _isOnline ? Icons.wifi : Icons.wifi_off,
                     size: 64,
-                          color: _isOnline ? Colors.green : Colors.red,
-                        ),
+                    color: _isOnline ? Colors.green : Colors.red,
+                  ),
                   const SizedBox(height: 16),
-                        Text(
-                          _connectivityState.description,
+                  Text(
+                    _connectivityState.description,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: _isOnline ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          color: _isOnline ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.bold,
                         ),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     _isOnline ? 'Device is ONLINE' : 'Device is OFFLINE',
                     style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () async {
@@ -207,7 +207,7 @@ class _FeaturesDemoState extends State<FeaturesDemo>
             icon: const Icon(Icons.refresh),
             label: const Text('Force Connectivity Check'),
           ),
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
           Card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,37 +252,37 @@ class _FeaturesDemoState extends State<FeaturesDemo>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         'Queue Statistics',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
                       Text(
                           'Total Requests: ${_queueStats['totalRequests'] ?? 0}'),
                       Text(
                           'Max Queue Size: ${_queueStats['maxQueueSize'] ?? 0}'),
-                    Text(
-                        'Utilization: ${_queueStats['utilizationPercent'] ?? 0}%'),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
+                      Text(
+                          'Utilization: ${_queueStats['utilizationPercent'] ?? 0}%'),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
                         value: (_queueStats['utilizationPercent'] ?? 0) / 100,
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton.icon(
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton.icon(
                     onPressed: () => _addRequest(method: 'GET'),
                     icon: const Icon(Icons.get_app),
                     label: const Text('GET Request'),
@@ -291,62 +291,62 @@ class _FeaturesDemoState extends State<FeaturesDemo>
                     onPressed: () => _addRequest(method: 'POST'),
                     icon: const Icon(Icons.send),
                     label: const Text('POST Request'),
-                ),
-                ElevatedButton.icon(
+                  ),
+                  ElevatedButton.icon(
                     onPressed: () => _addRequest(method: 'PUT'),
                     icon: const Icon(Icons.edit),
                     label: const Text('PUT Request'),
-                ),
-                ElevatedButton.icon(
+                  ),
+                  ElevatedButton.icon(
                     onPressed: () => _addRequest(method: 'DELETE'),
                     icon: const Icon(Icons.delete),
                     label: const Text('DELETE Request'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _processQueue,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Process Queue'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _clearQueue,
-                  icon: const Icon(Icons.clear),
-                  label: const Text('Clear Queue'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
                   ),
-                ),
-              ],
-            ),
+                  ElevatedButton.icon(
+                    onPressed: _processQueue,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Process Queue'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _clearQueue,
+                    icon: const Icon(Icons.clear),
+                    label: const Text('Clear Queue'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
-            Expanded(
-              child: Card(
+        Expanded(
+          child: Card(
             margin: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Queued Requests',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const Spacer(),
-                      Chip(label: Text('$_queueSize')),
-                        ],
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Queued Requests',
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
-                    ),
+                      const Spacer(),
+                      Chip(label: Text('$_queueSize')),
+                    ],
+                  ),
+                ),
                 const Divider(),
-                    Expanded(
-                      child: _queuedRequests.isEmpty
+                Expanded(
+                  child: _queuedRequests.isEmpty
                       ? const Center(child: Text('Queue is empty'))
-                          : ListView.builder(
-                              itemCount: _queuedRequests.length,
-                              itemBuilder: (context, index) {
-                                final request = _queuedRequests[index];
+                      : ListView.builder(
+                          itemCount: _queuedRequests.length,
+                          itemBuilder: (context, index) {
+                            final request = _queuedRequests[index];
                             return _buildRequestTile(request);
                           },
                         ),
@@ -550,7 +550,7 @@ class _FeaturesDemoState extends State<FeaturesDemo>
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16),
-                                    child: Text(
+                  child: Text(
                     'Queue Order (Priority → Creation Time)',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
@@ -592,9 +592,9 @@ class _FeaturesDemoState extends State<FeaturesDemo>
                   ],
                 ],
               ),
-                                      ),
-                                    ),
-                                  ),
+            ),
+          ),
+        ),
         Expanded(
           child: Card(
             margin: const EdgeInsets.all(16),
@@ -633,10 +633,10 @@ class _FeaturesDemoState extends State<FeaturesDemo>
                                 leading:
                                     const Icon(Icons.error, color: Colors.red),
                                 title: Text('${request.method} ${request.url}'),
-                                  subtitle: Column(
+                                subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('ID: ${request.id}'),
+                                  children: [
+                                    Text('ID: ${request.id}'),
                                     if (request.failureReason != null)
                                       Text(
                                         'Failure: ${request.failureReason}',
@@ -650,11 +650,11 @@ class _FeaturesDemoState extends State<FeaturesDemo>
                                         'Failed after: ${request.retryCount} retries'),
                                     Text(
                                         'Created: ${_formatDateTime(request.createdAt)}'),
-                                    ],
-                                  ),
-                                  trailing: IconButton(
+                                  ],
+                                ),
+                                trailing: IconButton(
                                   icon: const Icon(Icons.refresh),
-                                    onPressed: () async {
+                                  onPressed: () async {
                                     if (_networkWatcher.deadLetterQueue !=
                                         null) {
                                       await _networkWatcher.deadLetterQueue!
@@ -674,18 +674,18 @@ class _FeaturesDemoState extends State<FeaturesDemo>
                                       _showSnackBar(
                                           'Request retried', Colors.green);
                                     }
-                                    },
+                                  },
                                 ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+                              ),
+                            );
+                          },
+                        ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
+        ),
+      ],
     );
   }
 

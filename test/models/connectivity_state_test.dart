@@ -26,14 +26,22 @@ void main() {
 
     test('description returns correct strings', () {
       expect(ConnectivityState.wifi.description, equals('Connected via WiFi'));
-      expect(ConnectivityState.mobile.description,
-          equals('Connected via mobile data'));
-      expect(ConnectivityState.ethernet.description,
-          equals('Connected via ethernet'));
       expect(
-          ConnectivityState.none.description, equals('No internet connection'));
-      expect(ConnectivityState.unknown.description,
-          equals('Unknown connection state'));
+        ConnectivityState.mobile.description,
+        equals('Connected via mobile data'),
+      );
+      expect(
+        ConnectivityState.ethernet.description,
+        equals('Connected via ethernet'),
+      );
+      expect(
+        ConnectivityState.none.description,
+        equals('No internet connection'),
+      );
+      expect(
+        ConnectivityState.unknown.description,
+        equals('Unknown connection state'),
+      );
     });
   });
 }

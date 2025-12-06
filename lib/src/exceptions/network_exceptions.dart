@@ -1,8 +1,8 @@
 /// Base class for all network watcher exceptions
 abstract class NetworkWatcherException implements Exception {
-
   /// Creates a new NetworkWatcherException
   const NetworkWatcherException(this.message, [this.cause]);
+
   /// Error message
   final String message;
 
@@ -15,10 +15,10 @@ abstract class NetworkWatcherException implements Exception {
 
 /// Exception thrown when the offline queue is full
 class QueueFullException extends NetworkWatcherException {
-
   /// Creates a new QueueFullException
   const QueueFullException(this.maxSize)
-      : super('Offline queue is full (max size: $maxSize)');
+    : super('Offline queue is full (max size: $maxSize)');
+
   /// Maximum queue size that was exceeded
   final int maxSize;
 
@@ -37,10 +37,14 @@ class QueueException extends NetworkWatcherException {
 
 /// Exception thrown when network request execution fails
 class RequestExecutionException extends NetworkWatcherException {
-
   /// Creates a new RequestExecutionException
-  const RequestExecutionException(this.requestId, super.message,
-      [this.statusCode, super.cause]);
+  const RequestExecutionException(
+    this.requestId,
+    super.message, [
+    this.statusCode,
+    super.cause,
+  ]);
+
   /// The request that failed
   final String requestId;
 
